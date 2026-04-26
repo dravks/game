@@ -99,6 +99,12 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
     this.cameras.main.setBackgroundColor("#10131a");
 
+    // Start Data
+    this.dungeonId = data?.dungeonVariant || "forgotten_halls";
+    this.difficultyKey = data?.difficultyKey || "normal";
+    this.dungeonDef = GameState.DUNGEON_DEFS[this.dungeonId] || GameState.DUNGEON_DEFS.forgotten_halls;
+    this.maxPhases = this.dungeonDef.phases || 4;
+
     // Init State
     this.currentHp = GameState.getMaxHp(this.registry);
     this.currentMp = GameState.getMaxMp(this.registry);
@@ -412,7 +418,9 @@ class DungeonPrototypeScene extends Phaser.Scene {
         const dir = new Phaser.Math.Vector2(this.player.x - enemy.x, this.player.y - enemy.y).normalize();
         enemy.x += dir.x * enemy.speed * delta;
         enemy.y += dir.y * enemy.speed * delta;
-        enemy.visuals.forEach(v => { v.x = enemy.x; v.y = enemy.y + (v === enemy.sprite ? 0 : 22); });
+        if (enemy.visuals) {
+          enemy.visuals.forEach(v => { v.x = enemy.x; v.y = enemy.y + (v === enemy.sprite ? 0 : (enemy.isBoss ? 44 : 22)); });
+        }
         enemy.sprite.setFlipX(dir.x < 0);
         enemy.sprite.play(enemy.runAnim, true);
       } else {
@@ -470,53 +478,42 @@ class DungeonPrototypeScene extends Phaser.Scene {
   }
 
   createEnemyPlaceholders() {
+    const enemyPool = this.dungeonDef.enemyPool || ["kekon"];
     this.dungeonLayoutData.rooms.forEach(room => {
       if (room.type === 'combat') {
         const count = Phaser.Math.Between(2, 4);
         for(let i=0; i<count; i++) {
           const rx = room.x + Phaser.Math.Between(-room.w/3, room.w/3);
           const ry = room.y + Phaser.Math.Between(-room.h/3, room.h/3);
-          this.createKekon(rx, ry, room.phaseId);
+          const type = enemyPool[Phaser.Math.Between(0, enemyPool.length - 1)];
+          this.spawnEnemy(type, rx, ry, room.phaseId);
         }
       } else if (room.type === 'boss') {
-        this.createKekonBoss(room.x, room.y, room.phaseId);
+        this.spawnEnemy("kekon_boss", room.x, room.y, room.phaseId, true);
       }
     });
   }
 
-  createKekon(x, y, phaseId) {
-    const stats = GameState.getScaledEnemyStats(this.registry, "kekon", phaseId, this.difficultyKey, this.dungeonVariant);
-    const sprite = this.add.sprite(x, y, "enemy_kekon_idle").setScale(0.3).setDepth(9);
-    const shadow = this.add.ellipse(x, y + 22, 38, 14, 0x000000, 0.22).setDepth(8);
-    sprite.play("enemy-kekon-idle");
+  spawnEnemy(type, x, y, phaseId, isBoss = false) {
+    const stats = GameState.getScaledEnemyStats(this.registry, type, phaseId, this.difficultyKey, this.dungeonId);
+    const idleAnim = isBoss ? "enemy-kekon-boss-idle" : `enemy-${type.replace('_', '-')}-idle`;
+    const runAnim = isBoss ? "enemy-kekon-boss-run" : `enemy-${type.replace('_', '-')}-run`;
+    
+    const sprite = this.add.sprite(x, y, isBoss ? "enemy_kekon_boss_idle" : `enemy_${type}_idle`).setScale(isBoss ? 0.6 : 0.3).setDepth(9);
+    const shadow = this.add.ellipse(x, y + (isBoss ? 44 : 22), isBoss ? 80 : 38, isBoss ? 30 : 14, 0x000000, isBoss ? 0.3 : 0.22).setDepth(8);
+    sprite.play(idleAnim);
     
     this.enemyPlaceholders.push({
       x, y, 
       hp: stats.hp, 
-      maxHp: stats.maxHp,
+      maxHp: stats.hp,
       speed: stats.speed, 
       damage: stats.damage,
       sprite, visuals: [sprite, shadow],
-      idleAnim: "enemy-kekon-idle", runAnim: "enemy-kekon-run",
-      phaseId
-    });
-  }
-
-  createKekonBoss(x, y, phaseId) {
-    const stats = GameState.getScaledEnemyStats(this.registry, "kekon_boss", phaseId, this.difficultyKey, this.dungeonVariant);
-    const sprite = this.add.sprite(x, y, "enemy_kekon_boss_idle").setScale(0.6).setDepth(9);
-    const shadow = this.add.ellipse(x, y + 44, 80, 30, 0x000000, 0.3).setDepth(8);
-    sprite.play("enemy-kekon-boss-idle");
-    
-    this.enemyPlaceholders.push({
-      x, y, 
-      hp: stats.hp, 
-      maxHp: stats.maxHp,
-      speed: stats.speed, 
-      damage: stats.damage,
-      sprite, visuals: [sprite, shadow],
-      idleAnim: "enemy-kekon-boss-idle", runAnim: "enemy-kekon-boss-run",
-      phaseId
+      idleAnim, runAnim,
+      phaseId,
+      isBoss,
+      name: isBoss ? this.dungeonDef.bossName || "Boss" : type.replace('_', ' ')
     });
   }
 
@@ -626,8 +623,16 @@ class DungeonPrototypeScene extends Phaser.Scene {
 
   drawDungeonHeader() {
     const { width } = this.scale;
-    this.add.rectangle(width/2, 30, 300, 40, 0x000000, 0.6).setScrollFactor(0).setDepth(100);
-    this.dungeonTitle = this.add.text(width/2, 30, (this.dungeonVariant || "FORGOTTEN HALLS").toUpperCase().replace(/_/g, ' '), { fontSize: "20px", color: "#f4df9c" }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    const diffDef = GameState.getDungeonDifficultyDef(this.registry, this.difficultyKey);
+    const diffLabel = diffDef ? diffDef.label : "Normal";
+    
+    this.add.rectangle(width/2, 30, 420, 40, 0x000000, 0.6).setScrollFactor(0).setDepth(100);
+    this.dungeonTitle = this.add.text(width/2, 30, `${this.dungeonDef.name.toUpperCase()} - ${diffLabel.toUpperCase()}`, { 
+      fontSize: "20px", 
+      color: "#f4df9c",
+      fontStyle: "bold"
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    
     this.drawSkillBar();
   }
 

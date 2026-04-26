@@ -2444,43 +2444,63 @@ class PrototypeScene extends Phaser.Scene {
   buildDungeonGateServiceEntries() {
     const selectedDifficultyKey = GameState.getSelectedDungeonDifficultyKey?.(this.registry) || "normal";
     const difficulty = GameState.getDungeonDifficultyDef?.(this.registry, selectedDifficultyKey);
-    const routes = Object.values(GameState.DUNGEON_DEFS).filter(d => !d.locked).map(d => {
-      return {
-        key: d.id,
-        entryType: "route",
-        title: d.name,
-        meta: `Req. Lv ${d.recommendedLevel} | ${difficulty?.label || "Normal"}`,
-        iconKey: d.id === "forgotten_halls" ? "icon_05" : d.id === "ashen_barracks" ? "icon_06" : "icon_08",
-        tint: d.id === "forgotten_halls" ? 0xbfc9d6 : d.id === "ashen_barracks" ? 0xe0a16f : 0x7ab6d1,
-        actionText: `Enter ${d.name}`,
-        detailLines: [
-          d.description,
-          `Recommended Level: ${d.recommendedLevel}`,
-          `Phases: ${d.phases}`,
-          `Difficulty: ${difficulty?.label || "Normal"}`,
-          "Press Enter to descend into the route."
-        ],
-      };
-    });
-    return routes.map((route) => ({
-      key: route.key,
-      entryType: route.entryType,
-      title: route.title,
-      meta: route.meta,
-      iconKey: route.iconKey,
-      tint: route.tint,
-      actionText: route.actionText,
-      detailLines: route.detailLines,
+    
+    const entries = [];
+
+    // 1. Difficulty Selector Entry
+    entries.push({
+      key: "difficulty_selector",
+      title: `Difficulty: ${difficulty?.label || "Normal"}`,
+      meta: "Click to cycle difficulty",
+      iconKey: "icon_10",
+      tint: difficulty?.color || 0xbfc9d6,
+      actionText: "Cycle Difficulty (N / H / VH)",
+      detailLines: [
+        "Normal: Standard challenge and rewards.",
+        "Hard: HP x1.3, DMG x1.2. Better gold and loot.",
+        "Very Hard: HP x1.75, DMG x1.45. High rare drop chance.",
+        `Current: ${difficulty?.label || "Normal"}`,
+        "Select your challenge before entering a route."
+      ],
       onConfirm: () => {
-        const activeDifficultyKey = GameState.getSelectedDungeonDifficultyKey?.(this.registry) || "normal";
-        this.closeServicePanel();
-        this.scene.start("DungeonPrototypeScene", {
-          dungeonVariant: route.key,
-          difficultyKey: activeDifficultyKey,
-          returnSpawn: { x: 480, y: 282 },
-        });
-      },
-    }));
+        const next = GameState.cycleDungeonDifficulty?.(this.registry);
+        this.showCityBanner(`Difficulty: ${(GameState.getDungeonDifficultyDef?.(this.registry, next)?.label || next).toUpperCase()}`);
+        this.refreshServicePanel();
+      }
+    });
+
+    // 2. All 10 Dungeons
+    Object.values(GameState.DUNGEON_DEFS).forEach(d => {
+      const playerLevel = this.registry.get("playerLevel") || 1;
+      const isLocked = (d.unlockLevel || 1) > playerLevel;
+
+      entries.push({
+        key: d.id,
+        title: d.name + (isLocked ? " (Locked)" : ""),
+        meta: `Rec. Lv ${d.recommendedLevel} | Reward: ${d.rewardFocus || "General"}`,
+        iconKey: isLocked ? "icon_10" : (d.id === "forgotten_halls" ? "icon_05" : d.id === "ashen_barracks" ? "icon_06" : "icon_08"),
+        tint: isLocked ? 0x666666 : (d.id === "forgotten_halls" ? 0xbfc9d6 : d.id === "ashen_barracks" ? 0xe0a16f : 0x7ab6d1),
+        actionText: isLocked ? `Unlocks at Level ${d.unlockLevel}` : `Enter ${d.name}`,
+        detailLines: [
+          d.description || "No description available.",
+          `Theme: ${d.theme || "Unknown"}`,
+          `Phases: ${d.phases || 4}`,
+          `Reward Focus: ${d.rewardFocus || "Balanced"}`,
+          isLocked ? `Required Level: ${d.unlockLevel} (Your Level: ${playerLevel})` : "Press Enter to start this route."
+        ],
+        onConfirm: isLocked ? null : () => {
+          const activeDifficultyKey = GameState.getSelectedDungeonDifficultyKey?.(this.registry) || "normal";
+          this.closeServicePanel();
+          this.scene.start("DungeonPrototypeScene", {
+            dungeonVariant: d.id,
+            difficultyKey: activeDifficultyKey,
+            returnSpawn: { x: 480, y: 282 },
+          });
+        }
+      });
+    });
+
+    return entries;
   }
 
   getServiceEntriesForType(serviceType) {
@@ -3074,16 +3094,19 @@ class PrototypeScene extends Phaser.Scene {
       this.inventoryElements.panel = this.createUiPanel(panelX, panelY, 380, 360, 0.96, "panel_alt");
       this.inventoryElements.title = this.createUiText(panelX + 16, panelY + 14, "Bag  (I)", { fontSize: "17px", color: "#f8f1dc" });
       this.inventoryElements.subtitle = this.createUiText(panelX + 16, panelY + 38, "Left click to use/assign, Right click to equip", { fontSize: "11px", color: "#8899a6" });
-      this.inventoryElements.equipmentHeader = this.createUiText(panelX + 16, panelY + 62, "Equipment", { fontSize: "12px", color: "#f4df9c" });
+      // Equipment Section (Left/Top)
+      this.inventoryElements.equipmentHeader = this.createUiText(panelX + 16, panelY + 62, "Equipment", { fontSize: "12px", color: "#f4df9c", fontStyle: "bold" });
 
       const equipSlots = GameState.EQUIP_SLOTS;
       const equipLabelMap = { head: "Head", body: "Body", hands: "Hands", legs: "Legs", weapon: "Weapon" };
+      
+      // Better vertical distribution for equipment
       const positions = {
-        head: { x: panelX + 104, y: panelY + 100 },
-        hands: { x: panelX + 44, y: panelY + 160 },
-        body: { x: panelX + 104, y: panelY + 160 },
-        weapon: { x: panelX + 164, y: panelY + 160 },
-        legs: { x: panelX + 104, y: panelY + 220 },
+        head: { x: panelX + 104, y: panelY + 110 },
+        hands: { x: panelX + 44, y: panelY + 170 },
+        body: { x: panelX + 104, y: panelY + 170 },
+        weapon: { x: panelX + 164, y: panelY + 170 },
+        legs: { x: panelX + 104, y: panelY + 230 },
       };
       
       equipSlots.forEach((slot, index) => {
@@ -3094,23 +3117,19 @@ class PrototypeScene extends Phaser.Scene {
         const slotBg = this.add.image(sx, sy, "slot_normal").setDisplaySize(52, 52).setScrollFactor(0).setDepth(20).setInteractive({ useHandCursor: true });
         const slotIcon = this.add.image(sx, sy, "icon_05").setScale(0.3).setScrollFactor(0).setDepth(21).setAlpha(0.18);
         
-        let labelY = slot === "head" ? sy - 34 : sy + 34;
-        if (slot === "hands" || slot === "weapon") labelY = sy - 34;
-        
+        const labelY = slot === "head" ? sy - 34 : sy + 34;
         const slotLabel = this.createUiText(sx, labelY, equipLabelMap[slot], {
-          fontSize: "11px",
+          fontSize: "10px",
           color: "#b8c5c9",
-          align: "center",
-          strokeThickness: 2,
-        }).setOrigin(0.5);
+          align: "center"
+        }).setOrigin(0.5).setDepth(21);
         
         const itemText = this.createUiText(sx, sy + 18, "-", {
-          fontSize: "10px",
+          fontSize: "9px",
           color: "#d9e0e2",
           align: "center",
-          wordWrapWidth: 62,
-          strokeThickness: 2,
-        }).setOrigin(0.5, 0);
+          wordWrapWidth: 62
+        }).setOrigin(0.5, 0).setDepth(21);
 
         slotBg.on("pointerdown", () => {
           if (GameState.unequipToInventory(this.registry, slot)) {
@@ -3139,19 +3158,20 @@ class PrototypeScene extends Phaser.Scene {
         this.inventoryEquipItemTexts.push(itemText);
       });
 
-      this.inventoryElements.bagHeader = this.createUiText(panelX + 16, panelY + 96, "Bag", { fontSize: "13px", color: "#d7c48d" });
+      // Bag Section (Bottom)
+      const bagStartY = panelY + 275;
+      this.inventoryElements.bagHeader = this.createUiText(panelX + 16, bagStartY - 18, "Bag Items", { fontSize: "12px", color: "#d7c48d", fontStyle: "bold" });
 
       const gridStartX = panelX + 28;
-      const gridStartY = panelY + 124;
-      const slotSpacing = 56;
+      const slotSpacing = 68; // Increased spacing
 
       for (let row = 0; row < 4; row++) {
         for (let col = 0; col < 5; col++) {
           const idx = row * 5 + col;
-          const sx = gridStartX + col * slotSpacing + 20;
-          const sy = gridStartY + row * 42 + 20;
+          const sx = gridStartX + col * 68 + 20; // Corrected calculation
+          const sy = bagStartY + row * 46 + 20;
 
-          const slotBg = this.add.rectangle(sx, sy, 40, 40, 0x2a3a44, 0.9).setStrokeStyle(2, 0x5f767a, 0.7).setScrollFactor(0).setDepth(19).setInteractive({ useHandCursor: true });
+          const slotBg = this.add.rectangle(sx, sy, 44, 44, 0x2a3a44, 0.9).setStrokeStyle(2, 0x5f767a, 0.7).setScrollFactor(0).setDepth(19).setInteractive({ useHandCursor: true });
           slotBg.on("pointerdown", (pointer) => this.handleGridSlotClick(idx, pointer));
           slotBg.on("pointerover", () => { slotBg.setStrokeStyle(2, 0x88cc88, 0.9); this.showItemTooltip(idx, sx, sy); });
           slotBg.on("pointerout", () => {
@@ -3161,14 +3181,18 @@ class PrototypeScene extends Phaser.Scene {
           });
 
           let slotIcon = null;
-          try { slotIcon = this.add.image(sx, sy, "icon_11").setScale(0.24).setScrollFactor(0).setDepth(20).setAlpha(0); } catch (e) { /* ok */ }
-          const slotCount = this.createUiText(sx + 12, sy + 10, "", { fontSize: "10px", color: "#f8f1dc", align: "right" }).setOrigin(1, 0.5).setDepth(21);
+          try { slotIcon = this.add.image(sx, sy, "icon_11").setScale(0.26).setScrollFactor(0).setDepth(20).setAlpha(0); } catch (e) { /* ok */ }
+          const slotCount = this.createUiText(sx + 14, sy + 12, "", { fontSize: "10px", color: "#f8f1dc", align: "right" }).setOrigin(1, 0.5).setDepth(21);
 
           this.inventoryGridSlots.push(slotBg);
           this.inventoryGridIcons.push(slotIcon);
           this.inventoryGridCounts.push(slotCount);
         }
       }
+      
+      // Update panel size if needed
+      this.inventoryElements.panel.height = 500;
+      this.inventoryElements.panel.setPosition(panelX + 190, panelY + 250);
     }
 
     this.refreshInventoryEquipment();
@@ -3233,7 +3257,9 @@ class PrototypeScene extends Phaser.Scene {
       let color = "#dfe8ea";
       if (statKeyMatch) {
         const key = statKeyMatch[1].toLowerCase().replace(' ', '');
-        color = GameState.getItemStatColor(item, key, pClass);
+        const valMatch = line.match(/([+-]?\d+)/);
+        const val = valMatch ? parseInt(valMatch[1]) : 0;
+        color = GameState.getItemStatColor(pClass, key, val);
       }
       
       const lineText = this.add.text(tipX + 12, tipY + 50 + statYOffset, line, {

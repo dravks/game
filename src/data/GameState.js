@@ -36,44 +36,44 @@ window.GameState = {
     difficulty: {
       normal: {
         label: "Normal",
-        hpMultiplier: 1,
-        damageMultiplier: 1,
-        defenseMultiplier: 1,
+        hpMultiplier: 1.0,
+        damageMultiplier: 1.0,
+        defenseMultiplier: 1.0,
         resistBonus: 0,
-        goldMultiplier: 1,
-        expMultiplier: 1,
-        dropMultiplier: 1,
+        goldMultiplier: 1.0,
+        expMultiplier: 1.0,
+        dropMultiplier: 1.0,
         spawnBonus: 0,
-        bossHpMultiplier: 1,
+        bossHpMultiplier: 1.0,
         chestQualityBonus: 0,
         color: 0xbfc9d6,
       },
       hard: {
         label: "Hard",
-        hpMultiplier: 1.26,
-        damageMultiplier: 1.16,
-        defenseMultiplier: 1.12,
-        resistBonus: 0.03,
-        goldMultiplier: 1.2,
-        expMultiplier: 1.22,
-        dropMultiplier: 1.12,
+        hpMultiplier: 1.3,
+        damageMultiplier: 1.2,
+        defenseMultiplier: 1.15,
+        resistBonus: 0.04,
+        goldMultiplier: 1.3,
+        expMultiplier: 1.3,
+        dropMultiplier: 1.25,
         spawnBonus: 1,
         bossHpMultiplier: 1.5,
-        chestQualityBonus: 0.08,
+        chestQualityBonus: 0.1,
         color: 0xe0a16f,
       },
-      nightmare: {
-        label: "Nightmare",
-        hpMultiplier: 1.6,
-        damageMultiplier: 1.34,
-        defenseMultiplier: 1.22,
-        resistBonus: 0.06,
-        goldMultiplier: 1.45,
-        expMultiplier: 1.5,
-        dropMultiplier: 1.24,
+      very_hard: {
+        label: "Very Hard",
+        hpMultiplier: 1.75,
+        damageMultiplier: 1.45,
+        defenseMultiplier: 1.3,
+        resistBonus: 0.08,
+        goldMultiplier: 1.75,
+        expMultiplier: 1.75,
+        dropMultiplier: 1.6,
         spawnBonus: 2,
-        bossHpMultiplier: 2.2,
-        chestQualityBonus: 0.16,
+        bossHpMultiplier: 2.25,
+        chestQualityBonus: 0.2,
         color: 0xe07a7a,
       },
     },
@@ -104,44 +104,200 @@ window.GameState = {
     forgotten_halls: {
       id: "forgotten_halls",
       name: "Forgotten Halls",
-      description: "Cold stone halls with balanced spacing. Best for general farming.",
+      description: "Cold stone halls with balanced spacing. Best for beginners.",
       recommendedLevel: 1,
+      unlockLevel: 1,
       variantKey: "forgotten_halls",
       tileAsset: "dungeon_tile_a",
       floorColor: 0x334455,
-      phases: 4
+      phases: 4,
+      theme: "dark stone",
+      enemyPool: ["kekon", "kekon_warrior"],
+      bossName: "Kekon Chief",
+      rewardFocus: "Balanced starter gear",
+      decoration: "stone"
     },
     ashen_barracks: {
       id: "ashen_barracks",
       name: "Ashen Barracks",
-      description: "Narrow barracks rooms with scorched stone and dense mid-phase fights.",
+      description: "Burned military barracks with scorched stone. Dense melee combat.",
       recommendedLevel: 5,
+      unlockLevel: 4,
       variantKey: "ashen_barracks",
       tileAsset: "dungeon_tile_b",
       floorColor: 0x4a3a3a,
-      phases: 4
+      phases: 4,
+      theme: "burned barracks",
+      enemyPool: ["kekon_warrior", "kekon_brute"],
+      bossName: "Burned Captain",
+      rewardFocus: "Warrior / HP / Defense gear",
+      decoration: "military"
     },
     sunken_sanctum: {
       id: "sunken_sanctum",
       name: "Sunken Sanctum",
-      description: "Broader chambers with flooded floors. Punishing enemy spacing.",
+      description: "Flooded temple with blue-green lighting. Mana-rich halls.",
       recommendedLevel: 8,
+      unlockLevel: 7,
       variantKey: "sunken_sanctum",
       tileAsset: "dungeon_tile_b",
       floorColor: 0x3a4a5a,
-      phases: 5
+      phases: 5,
+      theme: "flooded temple",
+      enemyPool: ["kekon_shaman", "kekon"],
+      bossName: "Sunken Priest",
+      rewardFocus: "Mage / MP / Magic gear",
+      decoration: "aquatic"
     },
-    burning_forge: { id: "burning_forge", name: "Burning Forge", recommendedLevel: 12, locked: true },
-    shadow_crypt: { id: "shadow_crypt", name: "Shadow Crypt", recommendedLevel: 15, locked: true },
-    ancient_archive: { id: "ancient_archive", name: "Ancient Archive", recommendedLevel: 20, locked: true },
-    frozen_waste: { id: "frozen_waste", name: "Frozen Waste", recommendedLevel: 25, locked: true },
-    serpent_temple: { id: "serpent_temple", name: "Serpent Temple", recommendedLevel: 30, locked: true },
-    celestial_tower: { id: "celestial_tower", name: "Celestial Tower", recommendedLevel: 40, locked: true },
-    abyssal_rift: { id: "abyssal_rift", name: "Abyssal Rift", recommendedLevel: 50, locked: true },
+    shadow_silk_cave: {
+      id: "shadow_silk_cave",
+      name: "Shadow Silk Cave",
+      description: "Dark spider cave filled with webs and venomous predators.",
+      recommendedLevel: 12,
+      unlockLevel: 10,
+      variantKey: "shadow_silk_cave",
+      tileAsset: "dungeon_tile_a",
+      floorColor: 0x222222,
+      phases: 5,
+      theme: "spider cave",
+      enemyPool: ["kekon", "kekon_shaman"],
+      bossName: "Brood Mother",
+      rewardFocus: "Rogue / DEX / Speed gear",
+      decoration: "webs"
+    },
+    frostbite_crypt: {
+      id: "frostbite_crypt",
+      name: "Frostbite Crypt",
+      description: "Frozen ancient tomb where the dead do not rest easily.",
+      recommendedLevel: 16,
+      unlockLevel: 14,
+      variantKey: "frostbite_crypt",
+      tileAsset: "dungeon_tile_a",
+      floorColor: 0x445566,
+      phases: 6,
+      theme: "frozen tomb",
+      enemyPool: ["kekon_warrior", "kekon_brute"],
+      bossName: "Frost Lich",
+      rewardFocus: "Defense / MP / Rare armor",
+      decoration: "ice"
+    },
+    emberforge_depths: {
+      id: "emberforge_depths",
+      name: "Emberforge Depths",
+      description: "Lava-filled mine and underground forge with high heat enemies.",
+      recommendedLevel: 20,
+      unlockLevel: 18,
+      variantKey: "emberforge_depths",
+      tileAsset: "dungeon_tile_b",
+      floorColor: 0x663322,
+      phases: 6,
+      theme: "lava mine",
+      enemyPool: ["kekon_brute", "kekon_warrior"],
+      bossName: "Ember Golem",
+      rewardFocus: "Weapon upgrades / materials",
+      decoration: "lava"
+    },
+    bandit_quarry: {
+      id: "bandit_quarry",
+      name: "Bandit Quarry",
+      description: "Rocky quarry serving as a hideout for rogue bandits.",
+      recommendedLevel: 25,
+      unlockLevel: 22,
+      variantKey: "bandit_quarry",
+      tileAsset: "dungeon_tile_a",
+      floorColor: 0x555544,
+      phases: 5,
+      theme: "rocky quarry",
+      enemyPool: ["kekon", "kekon_warrior"],
+      bossName: "Bandit Warlord",
+      rewardFocus: "Gold / Archer gear",
+      decoration: "camps"
+    },
+    necrotic_catacombs: {
+      id: "necrotic_catacombs",
+      name: "Necrotic Catacombs",
+      description: "Undead-infested catacombs with green-purple necrotic energy.",
+      recommendedLevel: 30,
+      unlockLevel: 28,
+      variantKey: "necrotic_catacombs",
+      tileAsset: "dungeon_tile_b",
+      floorColor: 0x223322,
+      phases: 7,
+      theme: "undead catacombs",
+      enemyPool: ["kekon_shaman", "kekon_brute"],
+      bossName: "Graveborn King",
+      rewardFocus: "Rare armor / cursed loot",
+      decoration: "bones"
+    },
+    crystal_hollow: {
+      id: "crystal_hollow",
+      name: "Crystal Hollow",
+      description: "Glowing crystal cave filled with arcane-infused creatures.",
+      recommendedLevel: 40,
+      unlockLevel: 35,
+      variantKey: "crystal_hollow",
+      tileAsset: "dungeon_tile_b",
+      floorColor: 0x332244,
+      phases: 7,
+      theme: "crystal cave",
+      enemyPool: ["kekon_shaman", "kekon"],
+      bossName: "Crystal Guardian",
+      rewardFocus: "Rare/Epic materials",
+      decoration: "crystals"
+    },
+    abyss_gate: {
+      id: "abyss_gate",
+      name: "Abyss Gate",
+      description: "The endgame portal to the void. Only for the strongest heroes.",
+      recommendedLevel: 50,
+      unlockLevel: 45,
+      variantKey: "abyss_gate",
+      tileAsset: "dungeon_tile_b",
+      floorColor: 0x110011,
+      phases: 8,
+      theme: "void endgame",
+      enemyPool: ["kekon_brute", "kekon_shaman", "kekon_warrior"],
+      bossName: "Abyss Herald",
+      rewardFocus: "Legendary fragments",
+      decoration: "void"
+    },
   },
 
   deepClone(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  },
+
+  isAnyPanelOpen(scene) {
+    return !!(scene.inventoryOpen || scene.characterOpen || scene.skillPanelOpen || 
+              scene.questListOpen || scene.servicePanelOpen || scene.dialogOpen || 
+              scene.anvilPanelOpen);
+  },
+
+  closeAllPanels(scene) {
+    if (scene.inventoryOpen) scene.toggleInventoryPanel?.();
+    if (scene.characterOpen) scene.toggleCharacterPanel?.();
+    if (scene.skillPanelOpen) scene.toggleSkillPanel?.() || scene.hidePanel?.('skills');
+    if (scene.questListOpen) scene.toggleQuestList?.() || scene.hidePanel?.('quests');
+    if (scene.servicePanelOpen) scene.closeServicePanel?.();
+    if (scene.dialogOpen) scene.closeDialog?.();
+    if (scene.anvilPanelOpen) scene.setAnvilPanelVisible?.(false);
+  },
+
+  isClassPrimaryStat(playerClass, statKey) {
+    const classKey = (playerClass || "warrior").toLowerCase();
+    const primaryMap = {
+      warrior: ["str", "hp"],
+      mage: ["mp", "mpBonus"],
+      rogue: ["dex", "ap"],
+      archer: ["dex", "ap"]
+    };
+    return (primaryMap[classKey] || []).includes(statKey);
+  },
+
+  getItemStatColor(playerClass, statKey, value) {
+    if (value < 0) return "#ff6666"; // Red for negative
+    if (this.isClassPrimaryStat(playerClass, statKey)) return "#7de2a3"; // Green for primary
+    return "#d9e0e2"; // Neutral
   },
 
   mergeDeep(base, override) {
@@ -2084,5 +2240,24 @@ window.GameState = {
     if (registry.get("weaponUpgradePaperCount") === undefined) {
       registry.set("weaponUpgradePaperCount", 0);
     }
+  },
+
+  getSelectedDungeonDifficultyKey(registry) {
+    return registry.get("selectedDungeonDifficulty") || "normal";
+  },
+
+  getDungeonDifficultyDef(registry, key) {
+    const k = key || this.getSelectedDungeonDifficultyKey(registry);
+    return this.DEFAULT_GAME_CONFIG.difficulty[k] || this.DEFAULT_GAME_CONFIG.difficulty.normal;
+  },
+
+  cycleDungeonDifficulty(registry) {
+    const current = this.getSelectedDungeonDifficultyKey(registry);
+    const keys = Object.keys(this.DEFAULT_GAME_CONFIG.difficulty);
+    const currentIndex = keys.indexOf(current);
+    const nextIndex = (currentIndex + 1) % keys.length;
+    const nextKey = keys[nextIndex];
+    registry.set("selectedDungeonDifficulty", nextKey);
+    return nextKey;
   },
 };
