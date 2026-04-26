@@ -1,0 +1,15 @@
+{
+  "name": "mmoisekai",
+  "version": "1.0.0",
+  "description": "2D Isekai MMORPG Prototype",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "serve": "npx serve . -l 3000"
+  },
+  "devDependencies": {
+    "electron": "^41.3.0",
+    "serve": "^14.2.1"
+  }
+}
