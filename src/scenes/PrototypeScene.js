@@ -214,37 +214,38 @@ class PrototypeScene extends Phaser.Scene {
       return;
     }
 
-    if (this.dialogOpen) {
-      this.player.body.setVelocity(0, 0);
-
-      if (this.activeInteractable?.onConfirm && Phaser.Input.Keyboard.JustDown(this.actionKeys.confirm)) {
-        this.activeInteractable.onConfirm();
-        return;
-      }
-      if (Phaser.Input.Keyboard.JustDown(this.actionKeys.interact) || Phaser.Input.Keyboard.JustDown(this.actionKeys.close)) {
-        this.closeDialog();
-      }
-      return;
+    // Universal ESC / Close handling
+    if (Phaser.Input.Keyboard.JustDown(this.actionKeys.close)) {
+      if (this.handleGlobalPanelClose()) return;
     }
 
-    if (this.servicePanelOpen) {
+    // Check if any UI is blocking movement
+    if (GameState.isAnyPanelOpen(this)) {
       this.player.body.setVelocity(0, 0);
       this.setPlayerAnimation(false);
-      if (this.currentServiceType === "anvil" && Phaser.Input.Keyboard.JustDown(this.actionKeys.confirm)) {
-        this.handleAnvilUpgradeConfirm();
-      } else if (Phaser.Input.Keyboard.JustDown(this.actionKeys.confirm)) {
-        this.confirmSelectedServiceEntry();
-      }
-      if (Phaser.Input.Keyboard.JustDown(this.actionKeys.interact) || Phaser.Input.Keyboard.JustDown(this.actionKeys.close)) {
-        this.closeServicePanel();
+
+      if (this.dialogOpen) {
+        if (this.activeInteractable?.onConfirm && Phaser.Input.Keyboard.JustDown(this.actionKeys.confirm)) {
+          this.activeInteractable.onConfirm();
+          return;
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.actionKeys.interact)) {
+          this.closeDialog();
+        }
+      } else if (this.servicePanelOpen) {
+        if (this.currentServiceType === "anvil" && Phaser.Input.Keyboard.JustDown(this.actionKeys.confirm)) {
+          this.handleAnvilUpgradeConfirm();
+        } else if (Phaser.Input.Keyboard.JustDown(this.actionKeys.confirm)) {
+          this.confirmSelectedServiceEntry();
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.actionKeys.interact)) {
+          this.closeServicePanel();
+        }
       }
       return;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys.close) && this.handleGlobalPanelClose()) {
-      return;
-    }
-
+    // Normal movement and hotkeys
     this.handleMovement();
     this.handleHotbarKeys();
 
@@ -262,7 +263,6 @@ class PrototypeScene extends Phaser.Scene {
     }
 
     this.refreshHoveredInventoryTooltip();
-
     this.updateInteractionPrompt();
     this.updateMinimapPlayerMarker();
 
@@ -283,23 +283,28 @@ class PrototypeScene extends Phaser.Scene {
   }
 
   handleGlobalPanelClose() {
+    if (this.dialogOpen) {
+      this.closeDialog();
+      return true;
+    }
+    if (this.servicePanelOpen) {
+      this.closeServicePanel();
+      return true;
+    }
     if (this.questListOpen) {
-      this.questListOpen = false;
-      this.setQuestListVisible(false);
+      this.toggleQuestList();
       return true;
     }
     if (this.skillPanelOpen) {
-      this.skillPanelOpen = false;
-      this.hideSkillPanel?.();
+      this.toggleSkillPanel();
       return true;
     }
     if (this.characterOpen) {
-      this.characterOpen = false;
-      this.hideCharacterPanel?.();
+      this.toggleCharacterPanel();
       return true;
     }
     if (this.inventoryOpen) {
-      this.hideInventoryPanel?.();
+      this.toggleInventoryPanel();
       return true;
     }
     return false;
@@ -2439,56 +2444,24 @@ class PrototypeScene extends Phaser.Scene {
   buildDungeonGateServiceEntries() {
     const selectedDifficultyKey = GameState.getSelectedDungeonDifficultyKey?.(this.registry) || "normal";
     const difficulty = GameState.getDungeonDifficultyDef?.(this.registry, selectedDifficultyKey);
-    const routes = [
-      {
-        key: "forgotten_halls",
+    const routes = Object.values(GameState.DUNGEON_DEFS).filter(d => !d.locked).map(d => {
+      return {
+        key: d.id,
         entryType: "route",
-        title: "Forgotten Halls",
-        meta: `Balanced Route | ${difficulty?.label || "Normal"}`,
-        iconKey: "icon_05",
-        tint: 0xbfc9d6,
-        actionText: "Enter Forgotten Halls",
+        title: d.name,
+        meta: `Req. Lv ${d.recommendedLevel} | ${difficulty?.label || "Normal"}`,
+        iconKey: d.id === "forgotten_halls" ? "icon_05" : d.id === "ashen_barracks" ? "icon_06" : "icon_08",
+        tint: d.id === "forgotten_halls" ? 0xbfc9d6 : d.id === "ashen_barracks" ? 0xe0a16f : 0x7ab6d1,
+        actionText: `Enter ${d.name}`,
         detailLines: [
-          "Wide baseline route for the current loop.",
-          "Best first clear path and general farming route.",
-          "Pressure ramps steadily across the four phases.",
-          "Theme: cold stone halls with balanced spacing.",
-          "Recommended for fresh heroes and quick retests.",
+          d.description,
+          `Recommended Level: ${d.recommendedLevel}`,
+          `Phases: ${d.phases}`,
+          `Difficulty: ${difficulty?.label || "Normal"}`,
+          "Press Enter to descend into the route."
         ],
-      },
-      {
-        key: "ashen_barracks",
-        entryType: "route",
-        title: "Ashen Barracks",
-        meta: `Tighter Route | ${difficulty?.label || "Normal"}`,
-        iconKey: "icon_06",
-        tint: 0xe0a16f,
-        actionText: "Enter Ashen Barracks",
-        detailLines: [
-          "Narrower barracks rooms and denser mid-phase fights.",
-          "Extra elites appear before the boss chamber.",
-          "Theme: scorched barracks with warmer stone tones.",
-          "Good for stronger builds and pressure testing.",
-          "Uses more props and tighter blockers than the base route.",
-        ],
-      },
-      {
-        key: "sunken_sanctum",
-        entryType: "route",
-        title: "Sunken Sanctum",
-        meta: `Open Route | ${difficulty?.label || "Normal"}`,
-        iconKey: "icon_08",
-        tint: 0x7ab6d1,
-        actionText: "Enter Sunken Sanctum",
-        detailLines: [
-          "Broader chambers with longer approach lines.",
-          "Fights breathe more, but enemy spacing punishes sloppy pulls.",
-          "Theme: flooded sanctum with colder visuals.",
-          "Boss arena is larger and more exposed.",
-          "Best route for readability and loot pass checks.",
-        ],
-      },
-    ];
+      };
+    });
     return routes.map((route) => ({
       key: route.key,
       entryType: route.entryType,
@@ -2956,6 +2929,11 @@ class PrototypeScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(21);
     charButtonBg.on("pointerdown", () => this.toggleCharacterPanel());
 
+    this.hotbarSlotVisuals.forEach(v => {
+      if (v.bg) v.bg.destroy();
+      if (v.icon) v.icon.destroy();
+      if (v.keyLabel) v.keyLabel.destroy();
+    });
     this.hotbarSlotVisuals = [];
     for (let i = 0; i < slotCount; i++) {
       const slotX = startX + i * (slotSize + gap);
@@ -3243,9 +3221,29 @@ class PrototypeScene extends Phaser.Scene {
       fontFamily: "Trebuchet MS, Arial, sans-serif", fontSize: "11px", color: "#8a99a6",
     }).setScrollFactor(0).setDepth(31);
 
-    const statsText = this.add.text(tipX + 12, tipY + 50, statLines.join("\n"), {
+    const pClass = this.registry.get("playerClass") || "warrior";
+    const statsText = this.add.text(tipX + 12, tipY + 50, "", {
       fontFamily: "Trebuchet MS, Arial, sans-serif", fontSize: "13px", color: "#dfe8ea",
     }).setScrollFactor(0).setDepth(31);
+
+    // Build multi-colored stat lines
+    let statYOffset = 0;
+    statLines.forEach((line, idx) => {
+      const statKeyMatch = line.match(/\b(AP|HP|MP|STR|DEX|HP BONUS|MP BONUS)\b/);
+      let color = "#dfe8ea";
+      if (statKeyMatch) {
+        const key = statKeyMatch[1].toLowerCase().replace(' ', '');
+        color = GameState.getItemStatColor(item, key, pClass);
+      }
+      
+      const lineText = this.add.text(tipX + 12, tipY + 50 + statYOffset, line, {
+        fontFamily: "Trebuchet MS, Arial, sans-serif", fontSize: "13px", color: color,
+      }).setScrollFactor(0).setDepth(31);
+      
+      if (!this.inventoryTooltipLines) this.inventoryTooltipLines = [];
+      this.inventoryTooltipLines.push(lineText);
+      statYOffset += 15;
+    });
 
     let compareText = null;
     if (comparisonLines.length > 0) {
@@ -3396,6 +3394,10 @@ class PrototypeScene extends Phaser.Scene {
     if (!this.inventoryTooltipElements) return;
     Object.values(this.inventoryTooltipElements).forEach((el) => { if (el?.destroy) el.destroy(); });
     this.inventoryTooltipElements = null;
+    if (this.inventoryTooltipLines) {
+      this.inventoryTooltipLines.forEach(l => l.destroy());
+      this.inventoryTooltipLines = null;
+    }
   }
 
   handleGridSlotClick(index, pointer) {
@@ -3755,11 +3757,17 @@ class PrototypeScene extends Phaser.Scene {
     this.characterStatButtons.forEach((btn, i) => {
       const baseVal = baseStats[i];
       const combat = combatStats[i];
-      
-      const bonusAttr = GameState.getItemStatBonus(this.registry, statKeys[i].replace("Stat", ""));
+      const statKeyShort = statKeys[i].replace("Stat", "");
+      const bonusAttr = GameState.getItemStatBonus(this.registry, statKeyShort);
       
       btn.baseValText.setText(`${baseVal}`);
-      btn.bonusValText.setText(`(+${bonusAttr})`).setColor(bonusAttr > 0 ? "#a6d4a8" : "#8899a6");
+      
+      // KO style color coding for bonus stats
+      const pClass = this.registry.get("playerClass") || "warrior";
+      const isPrimary = GameState.isClassPrimaryStat(pClass, statKeyShort);
+      const bonusColor = bonusAttr > 0 ? (isPrimary ? "#7de2a3" : "#a6d4a8") : "#8899a6";
+      
+      btn.bonusValText.setText(`(+${bonusAttr})`).setColor(bonusColor);
       
       btn.derivedLabelText.setText(`${combat.label}: ${combat.total}`);
       if (btn.extraDerivedText) {

@@ -154,11 +154,9 @@ class DungeonPrototypeScene extends Phaser.Scene {
     try {
       if (!this.player || !this.actionKeys || this.isTransitioningOut) return;
 
-      // Emergency Reset
+      // Universal ESC / Close handling
       if (Phaser.Input.Keyboard.JustDown(this.actionKeys.close)) {
         if (this.handleGlobalPanelClose()) return;
-        this.dialogOpen = false;
-        Object.keys(this.uiPanels).forEach(k => this.hidePanel(k));
       }
 
       // Stability Check
@@ -166,12 +164,13 @@ class DungeonPrototypeScene extends Phaser.Scene {
         this.player.setPosition(this.playerRespawnPoint.x, this.playerRespawnPoint.y);
       }
 
-      // UI Check
-      const anyPanelVisible = Object.values(this.uiPanels).some(p => p.open);
-      if (this.dialogOpen || anyPanelVisible) {
+      // Check if any UI is blocking movement
+      if (GameState.isAnyPanelOpen(this)) {
         if (this.player.body) this.player.body.setVelocity(0, 0);
         this.setPlayerAnimation(false);
-        if (this.dialogOpen) this.handleDialogInput();
+        if (this.dialogOpen) {
+          this.handleDialogInput();
+        }
         return;
       }
 
@@ -186,6 +185,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
       this.updatePhaseProgression();
       this.updateInteractionPrompt();
       this.refreshHudPanel();
+      this.drawEnemyHpBars();
     } catch (error) {
       console.error("Dungeon Scene Update Error:", error);
     }
@@ -425,7 +425,40 @@ class DungeonPrototypeScene extends Phaser.Scene {
   tryEnemyAttack(enemy) {
     if (this.time.now < (enemy.lastAttackAt || 0) + 1500) return;
     enemy.lastAttackAt = this.time.now;
-    this.damagePlayer(enemy.damage);
+    
+    // Telegraphed Flash
+    enemy.sprite.setTint(0xffaa00);
+    this.time.delayedCall(300, () => {
+      enemy.sprite.clearTint();
+      if (enemy.hp > 0 && Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y) < 60) {
+        this.damagePlayer(enemy.damage);
+      }
+    });
+  }
+
+  drawEnemyHpBars() {
+    if (!this.hpBarGraphics) {
+      this.hpBarGraphics = this.add.graphics().setDepth(15);
+    }
+    this.hpBarGraphics.clear();
+    
+    this.enemyPlaceholders.forEach(enemy => {
+      if (enemy.hp <= 0 || !enemy.sprite.visible) return;
+      
+      const barW = 40;
+      const barH = 5;
+      const x = enemy.x - barW / 2;
+      const y = enemy.y - 45;
+      
+      // BG
+      this.hpBarGraphics.fillStyle(0x000000, 0.6);
+      this.hpBarGraphics.fillRect(x, y, barW, barH);
+      
+      // HP
+      const ratio = enemy.hp / enemy.maxHp;
+      this.hpBarGraphics.fillStyle(0xff0000, 1);
+      this.hpBarGraphics.fillRect(x, y, barW * ratio, barH);
+    });
   }
 
   // --- Factories ---
@@ -452,12 +485,17 @@ class DungeonPrototypeScene extends Phaser.Scene {
   }
 
   createKekon(x, y, phaseId) {
+    const stats = GameState.getScaledEnemyStats(this.registry, "kekon", phaseId, this.difficultyKey, this.dungeonVariant);
     const sprite = this.add.sprite(x, y, "enemy_kekon_idle").setScale(0.3).setDepth(9);
     const shadow = this.add.ellipse(x, y + 22, 38, 14, 0x000000, 0.22).setDepth(8);
     sprite.play("enemy-kekon-idle");
     
     this.enemyPlaceholders.push({
-      x, y, hp: 30, speed: 60, damage: 8,
+      x, y, 
+      hp: stats.hp, 
+      maxHp: stats.maxHp,
+      speed: stats.speed, 
+      damage: stats.damage,
       sprite, visuals: [sprite, shadow],
       idleAnim: "enemy-kekon-idle", runAnim: "enemy-kekon-run",
       phaseId
@@ -465,12 +503,17 @@ class DungeonPrototypeScene extends Phaser.Scene {
   }
 
   createKekonBoss(x, y, phaseId) {
+    const stats = GameState.getScaledEnemyStats(this.registry, "kekon_boss", phaseId, this.difficultyKey, this.dungeonVariant);
     const sprite = this.add.sprite(x, y, "enemy_kekon_boss_idle").setScale(0.6).setDepth(9);
     const shadow = this.add.ellipse(x, y + 44, 80, 30, 0x000000, 0.3).setDepth(8);
     sprite.play("enemy-kekon-boss-idle");
     
     this.enemyPlaceholders.push({
-      x, y, hp: 300, speed: 40, damage: 20,
+      x, y, 
+      hp: stats.hp, 
+      maxHp: stats.maxHp,
+      speed: stats.speed, 
+      damage: stats.damage,
       sprite, visuals: [sprite, shadow],
       idleAnim: "enemy-kekon-boss-idle", runAnim: "enemy-kekon-boss-run",
       phaseId
@@ -508,8 +551,13 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.uiPanels = {
       inventory: { open: false, elements: [] },
       skills: { open: false, elements: [] },
-      quests: { open: false, elements: [] }
+      quests: { open: false, elements: [] },
+      character: { open: false, elements: [] }
     };
+    this.inventoryOpen = false;
+    this.skillPanelOpen = false;
+    this.questListOpen = false;
+    this.characterOpen = false;
   }
 
   togglePanel(type) {
@@ -524,12 +572,14 @@ class DungeonPrototypeScene extends Phaser.Scene {
 
   showPanel(type) {
     this.uiPanels[type].open = true;
+    this[type + "Open"] = true; // Sync legacy flags
     if (this.uiPanels[type].elements.length === 0) this.createPanelUi(type);
     this.uiPanels[type].elements.forEach(el => el.setVisible(true));
   }
 
   hidePanel(type) {
     this.uiPanels[type].open = false;
+    this[type + "Open"] = false; // Sync legacy flags
     this.uiPanels[type].elements.forEach(el => el.setVisible(false));
     this.game?.canvas?.focus();
   }
@@ -549,6 +599,10 @@ class DungeonPrototypeScene extends Phaser.Scene {
   }
 
   handleGlobalPanelClose() {
+    if (this.dialogOpen) {
+      this.closeDialog();
+      return true;
+    }
     const active = Object.keys(this.uiPanels).find(k => this.uiPanels[k].open);
     if (active) {
       this.hidePanel(active);
@@ -573,7 +627,48 @@ class DungeonPrototypeScene extends Phaser.Scene {
   drawDungeonHeader() {
     const { width } = this.scale;
     this.add.rectangle(width/2, 30, 300, 40, 0x000000, 0.6).setScrollFactor(0).setDepth(100);
-    this.dungeonTitle = this.add.text(width/2, 30, "FORGOTTEN HALLS", { fontSize: "20px", color: "#f4df9c" }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    this.dungeonTitle = this.add.text(width/2, 30, (this.dungeonVariant || "FORGOTTEN HALLS").toUpperCase().replace(/_/g, ' '), { fontSize: "20px", color: "#f4df9c" }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    this.drawSkillBar();
+  }
+
+  drawSkillBar() {
+    const { width, height } = this.scale;
+    const slotCount = 6;
+    const slotSize = 48;
+    const gap = 8;
+    const totalW = slotCount * (slotSize + gap) - gap;
+    const startX = (width - totalW) / 2;
+    const startY = height - 50;
+
+    // Hotbar BG panel
+    this.add.rectangle(width/2, startY + 5, totalW + 20, 64, 0x000000, 0.5).setScrollFactor(0).setDepth(90);
+
+    const hotbarSlots = this.registry.get("hotbarSlots") || [null, null, null, null, null, null];
+    
+    this.hotbarSlotVisuals.forEach(v => {
+      if (v.bg) v.bg.destroy();
+      if (v.icon) v.icon.destroy();
+      if (v.label) v.label.destroy();
+    });
+    this.hotbarSlotVisuals = [];
+
+    for (let i = 0; i < slotCount; i++) {
+      const x = startX + i * (slotSize + gap);
+      const bg = this.add.image(x, startY, "slot_normal").setDisplaySize(slotSize, slotSize).setScrollFactor(0).setDepth(91);
+      
+      const itemId = hotbarSlots[i];
+      let icon = null;
+      if (itemId) {
+        const skill = GameState.getClassSkillDef(itemId) || GameState.getConsumableDef(itemId);
+        if (skill) {
+          icon = this.add.image(x, startY, skill.icon || "icon_05").setDisplaySize(slotSize - 8, slotSize - 8).setScrollFactor(0).setDepth(92);
+          if (skill.tint) icon.setTint(skill.tint);
+        }
+      }
+
+      const label = this.add.text(x - 18, startY - 18, (i + 1).toString(), { fontSize: "10px", color: "#888" }).setScrollFactor(0).setDepth(93);
+      this.hotbarSlotVisuals.push({ bg, icon, label });
+    }
   }
 
   // --- Helpers ---

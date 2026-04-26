@@ -100,6 +100,45 @@ window.GameState = {
       physicalResist: 0.18, magicResist: 0.12, rangedResist: 0.15,
     },
   },
+  DUNGEON_DEFS: {
+    forgotten_halls: {
+      id: "forgotten_halls",
+      name: "Forgotten Halls",
+      description: "Cold stone halls with balanced spacing. Best for general farming.",
+      recommendedLevel: 1,
+      variantKey: "forgotten_halls",
+      tileAsset: "dungeon_tile_a",
+      floorColor: 0x334455,
+      phases: 4
+    },
+    ashen_barracks: {
+      id: "ashen_barracks",
+      name: "Ashen Barracks",
+      description: "Narrow barracks rooms with scorched stone and dense mid-phase fights.",
+      recommendedLevel: 5,
+      variantKey: "ashen_barracks",
+      tileAsset: "dungeon_tile_b",
+      floorColor: 0x4a3a3a,
+      phases: 4
+    },
+    sunken_sanctum: {
+      id: "sunken_sanctum",
+      name: "Sunken Sanctum",
+      description: "Broader chambers with flooded floors. Punishing enemy spacing.",
+      recommendedLevel: 8,
+      variantKey: "sunken_sanctum",
+      tileAsset: "dungeon_tile_b",
+      floorColor: 0x3a4a5a,
+      phases: 5
+    },
+    burning_forge: { id: "burning_forge", name: "Burning Forge", recommendedLevel: 12, locked: true },
+    shadow_crypt: { id: "shadow_crypt", name: "Shadow Crypt", recommendedLevel: 15, locked: true },
+    ancient_archive: { id: "ancient_archive", name: "Ancient Archive", recommendedLevel: 20, locked: true },
+    frozen_waste: { id: "frozen_waste", name: "Frozen Waste", recommendedLevel: 25, locked: true },
+    serpent_temple: { id: "serpent_temple", name: "Serpent Temple", recommendedLevel: 30, locked: true },
+    celestial_tower: { id: "celestial_tower", name: "Celestial Tower", recommendedLevel: 40, locked: true },
+    abyssal_rift: { id: "abyssal_rift", name: "Abyssal Rift", recommendedLevel: 50, locked: true },
+  },
 
   deepClone(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -246,6 +285,57 @@ window.GameState = {
     } catch (error) {
       console.warn("Editor sync to save failed", error);
       return false;
+    }
+  },
+
+  isClassPrimaryStat(className, statKey) {
+    const primary = this.getPrimaryStatKeyForClass(className);
+    if (statKey === "str" && primary === "strStat") return true;
+    if (statKey === "dex" && primary === "dexStat") return true;
+    if (statKey === "mp" && primary === "mpStat") return true;
+    if (statKey === "mpBonus" && primary === "mpStat") return true;
+    return false;
+  },
+
+  getItemStatColor(item, statKey, className = "warrior") {
+    const value = this.getItemStatValue(item, statKey);
+    if (value < 0) return "#ff4444"; // Red for negative
+    if (this.isClassPrimaryStat(className, statKey)) return "#7de2a3"; // Green/Highlight for useful
+    return "#d9e0e2"; // Normal
+  },
+
+  isAnyPanelOpen(scene) {
+    return scene.inventoryOpen || 
+           scene.characterOpen || 
+           scene.skillPanelOpen || 
+           scene.questListOpen || 
+           scene.servicePanelOpen || 
+           scene.anvilPanelOpen || 
+           scene.dialogOpen ||
+           (scene.uiPanels && Object.values(scene.uiPanels).some(p => p.open));
+  },
+
+  closeAllPanels(scene) {
+    if (scene.hideInventoryPanel) scene.hideInventoryPanel();
+    if (scene.hideCharacterPanel) scene.hideCharacterPanel();
+    if (scene.hideSkillPanel) scene.hideSkillPanel();
+    if (scene.setQuestListVisible) scene.setQuestListVisible(false);
+    if (scene.closeServicePanel) scene.closeServicePanel();
+    if (scene.closeDialog) scene.closeDialog();
+    
+    scene.inventoryOpen = false;
+    scene.characterOpen = false;
+    scene.skillPanelOpen = false;
+    scene.questListOpen = false;
+    scene.servicePanelOpen = false;
+    scene.anvilPanelOpen = false;
+    scene.dialogOpen = false;
+
+    if (scene.uiPanels) {
+      Object.keys(scene.uiPanels).forEach(k => {
+        if (scene.hidePanel) scene.hidePanel(k);
+        else scene.uiPanels[k].open = false;
+      });
     }
   },
 
