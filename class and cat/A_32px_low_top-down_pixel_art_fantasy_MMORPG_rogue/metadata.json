@@ -1,0 +1,30 @@
+{
+  "character": {
+    "id": "25a471a9-e132-4e77-be8d-817104928600",
+    "name": "A 32px low top-down pixel art fantasy MMORPG rogue character. Small dark hooded assassin wearing black and dark purple leather armor, dual daggers, agile stealthy silhouette, masked face, brown boots and belt. Clean dark outline, readable silhouette, chibi RPG proportions, consistent Tiny Swords style, no background, no text, no labels, centered character, transparent background if possible.",
+    "prompt": "A 32px low top-down pixel art fantasy MMORPG rogue character. Small dark hooded assassin wearing black and dark purple leather armor, dual daggers, agile stealthy silhouette, masked face, brown boots and belt. Clean dark outline, readable silhouette, chibi RPG proportions, consistent Tiny Swords style, no background, no text, no labels, centered character, transparent background if possible.",
+    "size": {
+      "width": 48,
+      "height": 48
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-29T10:15:45.668859+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {}
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-29T10:16:49.707691"
+}

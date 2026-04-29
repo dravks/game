@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MMO Isekai - Dungeon Map Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+    <style>
+      body { margin: 0; background: #101820; overflow: hidden; font-family: sans-serif; }
+      #game-container { width: 100vw; height: 100vh; }
+      button { padding: 5px 10px; cursor: pointer; }
+      h3, h4 { margin: 5px 0; color: #f4df9c; }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"></div>
+    <input id="editor-import-input" type="file" accept="application/json" hidden />
+    
+    <script src="./src/data/GameState.js"></script>
+    <script src="./src/editor/EditorAssetCatalog.js"></script>
+    <script src="./src/editor/DungeonEditorScene.js"></script>
+    
+    <script>
+      const config = {
+        type: Phaser.AUTO,
+        parent: "game-container",
+        width: window.innerWidth,
+        height: window.innerHeight,
+        backgroundColor: "#101820",
+        scene: [DungeonEditorScene],
+        physics: {
+          default: "arcade",
+          arcade: { gravity: { y: 0 } }
+        }
+      };
+      
+      window.game = new Phaser.Game(config);
+      
+      window.addEventListener("resize", () => {
+        window.game.scale.resize(window.innerWidth, window.innerHeight);
+      });
+
+      // Handle Import
+      document.getElementById("editor-import-input").onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            const scene = window.game.scene.getScene("DungeonEditorScene");
+            if (scene) scene.loadMapData(data);
+          } catch (err) {
+            alert("Invalid JSON file");
+          }
+        };
+        reader.readAsText(file);
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "character": {
+    "id": "7be55599-8ebe-4bb2-a38d-832390417e0a",
+    "name": "A 32px low top-down pixel art fantasy MMORPG mage character. Small blue hooded wizard wearing a deep blue robe with gold trim, holding a wooden magic staff with a small glowing crystal. Arcane caster style, clean dark outline, readable silhouette, chibi RPG proportions, consistent Tiny Swords style, no background, no text, no labels, centered character, transparent background if possible.",
+    "prompt": "A 32px low top-down pixel art fantasy MMORPG mage character. Small blue hooded wizard wearing a deep blue robe with gold trim, holding a wooden magic staff with a small glowing crystal. Arcane caster style, clean dark outline, readable silhouette, chibi RPG proportions, consistent Tiny Swords style, no background, no text, no labels, centered character, transparent background if possible.",
+    "size": {
+      "width": 48,
+      "height": 48
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-29T10:14:01.960722+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {}
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-29T10:15:29.792005"
+}

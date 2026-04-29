@@ -6,6 +6,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.attackCooldownMs = 300;
     this.attackReadyAt = 0;
     this.classSkillReadyAt = 0;
+    this.skillReadyAtById = {};
     this.completionExit = null;
     this.dungeonCleared = false;
     this.dialogOpen = false;
@@ -33,6 +34,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.hotbarSlotVisuals = [];
     this.phaseProgress = 0;
     this.maxPhases = 4;
+    this.enemyAttackRange = 76;
     
     // UI Refs
     this.inventoryGridSlots = [];
@@ -87,56 +89,78 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.load.image("dungeon_rock_b", "assets/terrain/dungeon/rock_b.png");
     this.load.image("dungeon_bush_dead", "assets/terrain/dungeon/bush_dead.png");
     this.load.image("dungeon_tree_01", "assets/props/dungeon/tree_01.png");
+
+    // Editor-made dungeon template JSON files
+    if (window.DungeonTemplates?.list) {
+      window.DungeonTemplates.list().forEach((def) => {
+        if (def?.id && def?.jsonPath && !this.cache.json.exists(`dungeon_template_${def.id}`)) {
+          this.load.json(`dungeon_template_${def.id}`, def.jsonPath);
+        }
+      });
+    }
   }
 
-  create(data) {
-    const { width, height } = this.scale;
-    
-    // Set World Bounds
-    const worldWidth = 4000;
-    const worldHeight = 1200;
+  create(data = {}) {
+    const resolvedTemplate = this.resolveDungeonTemplateData(data);
+    this.selectedDungeonId = resolvedTemplate.id;
+    this.selectedDifficultyKey = window.DungeonTemplates?.normalizeDifficulty?.(data?.difficulty || data?.difficultyKey || "normal") || (data?.difficulty || "normal");
+    this.selectedDifficulty = window.DungeonTemplates?.getDifficulty?.(this.selectedDifficultyKey) || { key: "normal", label: "Normal", enemyHp: 1, enemyDamage: 1, bossHp: 1, gold: 1, drop: 1 };
+    this.dungeonTemplate = resolvedTemplate.template;
+    this.usingTemplateDungeon = !!this.dungeonTemplate;
+    this.__bossGoldGranted = false;
+    this.__bossEquipmentRewardGranted = null;
+    this.__bossMaterialsGranted = null;
+    this.enemyDefeatCount = 0;
+
+    const worldWidth = this.dungeonTemplate?.width || 4000;
+    const worldHeight = this.dungeonTemplate?.height || 1200;
     this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
-    this.cameras.main.setBackgroundColor("#10131a");
-
-    // Start Data
-    this.dungeonId = data?.dungeonVariant || "forgotten_halls";
-    this.difficultyKey = data?.difficultyKey || "normal";
-    this.dungeonDef = GameState.DUNGEON_DEFS[this.dungeonId] || GameState.DUNGEON_DEFS.forgotten_halls;
-    this.maxPhases = this.dungeonDef.phases || 4;
+    this.cameras.main.setBackgroundColor(this.dungeonTemplate?.theme?.backgroundColor || "#10131a");
 
     // Init State
     this.currentHp = GameState.getMaxHp(this.registry);
     this.currentMp = GameState.getMaxMp(this.registry);
     this.playerSpeed = GameState.getPlayerSpeed(this.registry);
-    this.playerRespawnPoint = { x: 300, y: 600 };
+    GameState.attachAutoSave?.(this, this.registry);
 
     this.initUiManager();
-    
-    // Build Layout
-    this.dungeonLayoutData = this.generateDungeonLayout(worldWidth, worldHeight);
-    
-    // Draw Environment
-    this.drawDungeonEnvironment(worldWidth, worldHeight);
-    this.createCollisionBlocks();
-    
+
+    if (this.usingTemplateDungeon) {
+      this.dungeonLayoutData = this.buildTemplateDungeonLayout(this.dungeonTemplate);
+      this.drawTemplateDungeonEnvironment(this.dungeonTemplate);
+      this.createTemplateCollisionBlocks(this.dungeonTemplate);
+    } else {
+      this.dungeonLayoutData = this.generateDungeonLayout(worldWidth, worldHeight);
+      this.drawDungeonEnvironment(worldWidth, worldHeight);
+      this.createCollisionBlocks();
+    }
+
+    this.playerRespawnPoint = { ...this.dungeonLayoutData.entrySpawn };
+
     // Animations
     this.createAnimations();
-    
+
     // Player
     const spawnX = data?.spawn?.x ?? this.dungeonLayoutData.entrySpawn.x;
     const spawnY = data?.spawn?.y ?? this.dungeonLayoutData.entrySpawn.y;
     this.createPlayer(spawnX, spawnY);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
-    
+
     // Enemies
-    this.createEnemyPlaceholders();
-    
+    if (this.usingTemplateDungeon) this.createTemplateEnemyPlaceholders(this.dungeonTemplate);
+    else this.createEnemyPlaceholders();
+
     // Goals & Interaction
-    this.createReturnGate();
-    this.createCompletionExit();
+    if (this.usingTemplateDungeon) {
+      this.createTemplateReturnGate(this.dungeonTemplate);
+      this.createTemplateCompletionExit(this.dungeonTemplate);
+    } else {
+      this.createReturnGate();
+      this.createCompletionExit();
+    }
     this.createInteractionUi();
-    
+
     // Input & UI
     this.createInput();
     this.input.mouse.disableContextMenu();
@@ -149,10 +173,10 @@ class DungeonPrototypeScene extends Phaser.Scene {
       this.game.canvas.setAttribute("tabindex", "0");
     }
 
-    // Phase Gates
+    // Phase Gates: generated dungeons still use them; template dungeons are open layouts.
     this.phaseGates = [];
-    this.createPhaseGates();
-    
+    if (!this.usingTemplateDungeon) this.createPhaseGates();
+
     window.PROTOTYPE_SETUP_READY = true;
   }
 
@@ -160,9 +184,11 @@ class DungeonPrototypeScene extends Phaser.Scene {
     try {
       if (!this.player || !this.actionKeys || this.isTransitioningOut) return;
 
-      // Universal ESC / Close handling
+      // Emergency Reset
       if (Phaser.Input.Keyboard.JustDown(this.actionKeys.close)) {
         if (this.handleGlobalPanelClose()) return;
+        this.dialogOpen = false;
+        Object.keys(this.uiPanels).forEach(k => this.hidePanel(k));
       }
 
       // Stability Check
@@ -170,13 +196,14 @@ class DungeonPrototypeScene extends Phaser.Scene {
         this.player.setPosition(this.playerRespawnPoint.x, this.playerRespawnPoint.y);
       }
 
-      // Check if any UI is blocking movement
-      if (GameState.isAnyPanelOpen(this)) {
+      this.handleInputActions();
+
+      // UI Check
+      const anyPanelVisible = Object.values(this.uiPanels).some(p => p.open);
+      if (this.dialogOpen || anyPanelVisible) {
         if (this.player.body) this.player.body.setVelocity(0, 0);
         this.setPlayerAnimation(false);
-        if (this.dialogOpen) {
-          this.handleDialogInput();
-        }
+        if (this.dialogOpen) this.handleDialogInput();
         return;
       }
 
@@ -186,12 +213,10 @@ class DungeonPrototypeScene extends Phaser.Scene {
       }
 
       this.handleMovement();
-      this.handleInputActions();
       this.updateEnemyAi();
       this.updatePhaseProgression();
       this.updateInteractionPrompt();
       this.refreshHudPanel();
-      this.drawEnemyHpBars();
     } catch (error) {
       console.error("Dungeon Scene Update Error:", error);
     }
@@ -220,36 +245,47 @@ class DungeonPrototypeScene extends Phaser.Scene {
   }
 
   drawDungeonEnvironment(w, h) {
-    // Fill background with a very dark tint
-    this.add.tileSprite(w/2, h/2, w, h, "dungeon_tile_a").setTint(0x1a1c22).setDepth(0);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x05070a, 1).setDepth(-2);
+    this.add.tileSprite(w/2, h/2, w, h, "dungeon_tile_a").setTint(0x151922).setAlpha(0.92).setDepth(0);
     
     this.dungeonLayoutData.rooms.forEach(room => {
-      // Draw Room Floor
-      const floor = this.add.tileSprite(room.x, room.y, room.w, room.h, "dungeon_tile_b").setDepth(1).setAlpha(0.8);
-      floor.setTint(0x334455);
-      
-      // Draw Room Border (Visual Shadow)
-      const shadow = this.add.graphics();
-      shadow.fillStyle(0x000000, 0.4);
-      shadow.fillRect(room.x - room.w/2 - 10, room.y - room.h/2 - 10, room.w + 20, room.h + 20);
-      shadow.setDepth(0.5);
+      const isBoss = room.type === "boss";
+      this.add.rectangle(room.x, room.y + 14, room.w + 56, room.h + 56, 0x000000, 0.52).setDepth(0.4);
+      this.add.rectangle(room.x, room.y, room.w + 28, room.h + 28, isBoss ? 0x331816 : 0x141b22, 0.98)
+        .setStrokeStyle(4, isBoss ? 0x8b4f2e : 0x4d5d5f, 0.8).setDepth(0.8);
+      const floor = this.add.tileSprite(room.x, room.y, room.w, room.h, "dungeon_tile_b").setDepth(1).setAlpha(0.92);
+      floor.setTint(isBoss ? 0x46322e : 0x303c42);
 
-      // Add random decor
-      for(let i=0; i<Math.floor(room.w * room.h / 50000); i++) {
+      this.add.rectangle(room.x, room.y - room.h / 2 + 10, room.w, 20, 0x090b10, 0.65).setDepth(3);
+      this.add.rectangle(room.x, room.y + room.h / 2 - 10, room.w, 20, 0x090b10, 0.35).setDepth(3);
+      this.add.rectangle(room.x - room.w / 2 + 10, room.y, 20, room.h, 0x090b10, 0.45).setDepth(3);
+      this.add.rectangle(room.x + room.w / 2 - 10, room.y, 20, room.h, 0x090b10, 0.45).setDepth(3);
+
+      const torchCount = Math.max(2, Math.floor(room.w / 260));
+      for (let i = 0; i < torchCount; i++) {
+        const tx = room.x - room.w / 2 + 90 + i * ((room.w - 180) / Math.max(1, torchCount - 1));
+        const ty = room.y - room.h / 2 + 34;
+        this.add.circle(tx, ty, 8, 0xff9f35, 0.95).setDepth(6);
+        this.add.circle(tx, ty, isBoss ? 58 : 42, 0xff8a22, isBoss ? 0.12 : 0.08).setDepth(2);
+      }
+
+      for(let i=0; i<Math.floor(room.w * room.h / 42000); i++) {
         const dx = Phaser.Math.Between(-room.w/2 + 40, room.w/2 - 40);
         const dy = Phaser.Math.Between(-room.h/2 + 40, room.h/2 - 40);
-        const asset = Phaser.Utils.Array.GetRandom(["dungeon_rock_a", "dungeon_rock_b", "dungeon_bush_dead"]);
-        this.add.image(room.x + dx, room.y + dy, asset).setScale(Phaser.Math.FloatBetween(0.7, 1.1)).setTint(0x445566).setDepth(2);
+        const asset = Phaser.Utils.Array.GetRandom(["dungeon_rock_a", "dungeon_rock_b", "dungeon_bush_dead", "dungeon_tree_01"]);
+        this.add.image(room.x + dx, room.y + dy, asset).setScale(Phaser.Math.FloatBetween(0.55, 1.0)).setTint(isBoss ? 0x7a5140 : 0x526367).setAlpha(0.86).setDepth(2);
       }
     });
 
-    // Draw Corridors
     this.dungeonLayoutData.corridors.forEach(c => {
       const cx = (c.x1 + c.x2) / 2;
       const cy = (c.y1 + c.y2) / 2;
       const cw = Math.abs(c.x2 - c.x1) + 100;
       const ch = Math.abs(c.y2 - c.y1) + 120;
-      this.add.tileSprite(cx, cy, cw, ch, "dungeon_tile_b").setTint(0x223344).setDepth(1);
+      this.add.rectangle(cx, cy + 10, cw + 34, ch + 34, 0x000000, 0.42).setDepth(0.6);
+      this.add.tileSprite(cx, cy, cw, ch, "dungeon_tile_b").setTint(0x222d34).setAlpha(0.88).setDepth(1);
+      this.add.rectangle(cx, cy - ch / 2 + 8, cw, 16, 0x080b10, 0.55).setDepth(3);
+      this.add.rectangle(cx, cy + ch / 2 - 8, cw, 16, 0x080b10, 0.38).setDepth(3);
     });
   }
 
@@ -317,37 +353,102 @@ class DungeonPrototypeScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys.skills)) this.togglePanel('skills');
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys.questList)) this.togglePanel('quests');
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys.character)) this.togglePanel('character');
-    if (Phaser.Input.Keyboard.JustDown(this.actionKeys.classSkill)) this.useClassSkill();
     
-    if (this.activeInteractable && Phaser.Input.Keyboard.JustDown(this.actionKeys.interact)) {
-      this.openDialog(this.activeInteractable);
+    if (
+      this.activeInteractable
+      && (Phaser.Input.Keyboard.JustDown(this.actionKeys.interact) || Phaser.Input.Keyboard.JustDown(this.actionKeys.confirm))
+    ) {
+      this.activeInteractable.onConfirm?.();
     }
   }
 
   // --- Combat ---
   handleBasicAttack() {
     if (this.time.now < this.attackReadyAt) return;
-    this.attackReadyAt = this.time.now + this.attackCooldownMs;
+    const profile = this.getClassCombatProfile();
+    this.attackReadyAt = this.time.now + profile.cooldownMs;
 
-    const hitX = this.player.x + this.playerFacing.x * 50;
-    const hitY = this.player.y + this.playerFacing.y * 50;
+    const pointer = this.input?.activePointer;
+    let worldPoint = null;
+    if (pointer) {
+      worldPoint = pointer.positionToCamera(this.cameras.main);
+      const aim = new Phaser.Math.Vector2(worldPoint.x - this.player.x, worldPoint.y - this.player.y);
+      if (aim.lengthSq() > 4) {
+        this.playerFacing = aim.normalize();
+      }
+    }
+
+    const hitX = worldPoint?.x ?? (this.player.x + this.playerFacing.x * profile.hitOffset);
+    const hitY = worldPoint?.y ?? (this.player.y + this.playerFacing.y * profile.hitOffset);
     
-    this.spawnAnimatedEffect("fx_dust_01", "fx-dust-01", hitX, hitY, { scale: 0.8 });
+    this.spawnAnimatedEffect(profile.projectile ? "fx_explosion_01" : "fx_dust_01", profile.projectile ? "fx-explosion-01" : "fx-dust-01", this.player.x + this.playerFacing.x * Math.min(profile.hitOffset, 90), this.player.y + this.playerFacing.y * Math.min(profile.hitOffset, 90), { scale: profile.effectScale });
     
-    this.enemyPlaceholders.forEach(enemy => {
-      if (enemy.hp > 0 && Phaser.Math.Distance.Between(hitX, hitY, enemy.x, enemy.y) < 60) {
-        this.damageEnemy(enemy, GameState.getWeaponAp(this.registry));
+    const target = this.enemyPlaceholders
+      .filter(enemy => enemy.hp > 0 && Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) <= profile.range && Phaser.Math.Distance.Between(hitX, hitY, enemy.x, enemy.y) <= profile.targetRadius)
+      .sort((a, b) => Phaser.Math.Distance.Between(hitX, hitY, a.x, a.y) - Phaser.Math.Distance.Between(hitX, hitY, b.x, b.y))[0];
+
+    if (target) {
+      if (profile.projectile) this.spawnRangedTrace(this.player.x, this.player.y - 12, target.x, target.y, profile.tint);
+      this.damageEnemy(target, GameState.getWeaponAp(this.registry) * profile.damageMultiplier, profile.damageType);
+    } else {
+      this.showDamageText(hitX, hitY - 20, "MISS", "#dddddd");
+    }
+  }
+
+  getClassCombatProfile() {
+    const playerClass = String(this.registry.get("playerClass") || GameState.DEFAULT_CLASS || "warrior").toLowerCase();
+    const profiles = {
+      warrior: { range: 70, hitOffset: 46, targetRadius: 52, cooldownMs: 620, damageMultiplier: 1.12, damageType: "physical", projectile: false, tint: 0xf4df9c, effectScale: 0.85 },
+      rogue: { range: 86, hitOffset: 54, targetRadius: 58, cooldownMs: 470, damageMultiplier: 0.98, damageType: "physical", projectile: false, tint: 0xae7cff, effectScale: 0.8 },
+      mage: { range: 275, hitOffset: 145, targetRadius: 94, cooldownMs: 760, damageMultiplier: 0.92, damageType: "magic", projectile: true, tint: 0x77a9ff, effectScale: 1.05 },
+      archer: { range: 320, hitOffset: 165, targetRadius: 84, cooldownMs: 560, damageMultiplier: 1.0, damageType: "ranged", projectile: true, tint: 0xd8b15c, effectScale: 0.9 },
+    };
+    return profiles[playerClass] || profiles.warrior;
+  }
+
+  spawnRangedTrace(fromX, fromY, toX, toY, tint = 0xf4df9c) {
+    const line = this.add.line(0, 0, fromX, fromY, toX, toY, tint, 0.5).setOrigin(0, 0).setDepth(80);
+    const shot = this.add.circle(fromX, fromY, 4, tint, 0.95).setDepth(81);
+    this.tweens?.add?.({
+      targets: shot,
+      x: toX,
+      y: toY,
+      duration: 120,
+      onComplete: () => {
+        shot.destroy();
+        line.destroy();
       }
     });
   }
 
   useClassSkill() {
-    if (this.time.now < this.classSkillReadyAt) return;
-    const skill = GameState.CLASS_SKILL_DEFS[this.registry.get("playerClass") || "warrior"];
-    if (this.currentMp < skill.mpCost) return;
+    const playerClass = (this.registry.get("playerClass") || GameState.DEFAULT_CLASS || "warrior").toLowerCase();
+    const skill = GameState.getClassSkillForClass?.(playerClass) || GameState.CLASS_SKILL_DEFS[playerClass];
+    if (!skill) {
+      this.showDamageText(this.player.x, this.player.y - 50, "NO SKILL", "#dddddd");
+      return;
+    }
+    if (this.currentMp < skill.mpCost) {
+      this.showDamageText(this.player.x, this.player.y - 50, "NO MP", "#77a9ff");
+      return;
+    }
+    const readyAt = this.getSkillReadyAt(skill.id);
+    if (this.time.now < readyAt) {
+      this.showDamageText(this.player.x, this.player.y - 50, `${Math.ceil((readyAt - this.time.now) / 1000)}s`, "#dddddd");
+      return;
+    }
 
     this.currentMp -= skill.mpCost;
-    this.classSkillReadyAt = this.time.now + skill.cooldownMs;
+    this.setSkillReadyAt(skill.id, this.time.now + skill.cooldownMs);
+
+    const pointer = this.input?.activePointer;
+    if (pointer) {
+      const worldPoint = pointer.positionToCamera(this.cameras.main);
+      const aim = new Phaser.Math.Vector2(worldPoint.x - this.player.x, worldPoint.y - this.player.y);
+      if (aim.lengthSq() > 4) {
+        this.playerFacing = aim.normalize();
+      }
+    }
     
     const hitX = this.player.x + this.playerFacing.x * 100;
     const hitY = this.player.y + this.playerFacing.y * 100;
@@ -359,6 +460,19 @@ class DungeonPrototypeScene extends Phaser.Scene {
         this.damageEnemy(enemy, GameState.getWeaponAp(this.registry) * skill.damageScale);
       }
     });
+  }
+
+  getSkillReadyAt(skillId) {
+    return this.skillReadyAtById?.[skillId] || 0;
+  }
+
+  setSkillReadyAt(skillId, readyAt) {
+    this.skillReadyAtById = { ...(this.skillReadyAtById || {}), [skillId]: readyAt };
+    this.classSkillReadyAt = readyAt;
+  }
+
+  getSkillCooldownRemaining(skillId) {
+    return Math.max(0, this.getSkillReadyAt(skillId) - this.time.now);
   }
 
   damageEnemy(enemy, amount) {
@@ -386,8 +500,10 @@ class DungeonPrototypeScene extends Phaser.Scene {
   damagePlayer(amount) {
     if (this.isRespawning) return;
     this.currentHp -= amount;
+    if (this.currentHp < 0) this.currentHp = 0;
     this.cameras.main.shake(100, 0.01);
     this.showDamageText(this.player.x, this.player.y - 40, `-${amount}`, "#ff0000");
+    this.refreshHudPanel();
     
     if (this.currentHp <= 0) this.handlePlayerDeath();
   }
@@ -411,16 +527,15 @@ class DungeonPrototypeScene extends Phaser.Scene {
 
       const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
       
-      if (dist < 50) {
+      const attackRange = enemy.attackRange || (enemy.isBoss ? 118 : this.enemyAttackRange);
+      if (dist < attackRange) {
         this.tryEnemyAttack(enemy);
-      } else if (dist < 300) {
+      } else if (dist < 360) {
         // Chase
         const dir = new Phaser.Math.Vector2(this.player.x - enemy.x, this.player.y - enemy.y).normalize();
         enemy.x += dir.x * enemy.speed * delta;
         enemy.y += dir.y * enemy.speed * delta;
-        if (enemy.visuals) {
-          enemy.visuals.forEach(v => { v.x = enemy.x; v.y = enemy.y + (v === enemy.sprite ? 0 : (enemy.isBoss ? 44 : 22)); });
-        }
+        enemy.visuals.forEach(v => { v.x = enemy.x; v.y = enemy.y + (v === enemy.sprite ? 0 : 22); });
         enemy.sprite.setFlipX(dir.x < 0);
         enemy.sprite.play(enemy.runAnim, true);
       } else {
@@ -431,42 +546,13 @@ class DungeonPrototypeScene extends Phaser.Scene {
   }
 
   tryEnemyAttack(enemy) {
-    if (this.time.now < (enemy.lastAttackAt || 0) + 1500) return;
+    if (this.time.now < (enemy.lastAttackAt || 0) + 1200) return;
     enemy.lastAttackAt = this.time.now;
-    
-    // Telegraphed Flash
-    enemy.sprite.setTint(0xffaa00);
-    this.time.delayedCall(300, () => {
-      enemy.sprite.clearTint();
-      if (enemy.hp > 0 && Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y) < 60) {
-        this.damagePlayer(enemy.damage);
-      }
-    });
-  }
-
-  drawEnemyHpBars() {
-    if (!this.hpBarGraphics) {
-      this.hpBarGraphics = this.add.graphics().setDepth(15);
+    this.showDamageText(enemy.x, enemy.y - 56, "ATK", "#ffbb66");
+    const liveDistance = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+    if (liveDistance <= (enemy.attackRange || this.enemyAttackRange) + 10) {
+      this.damagePlayer(Math.max(1, enemy.damage || 1));
     }
-    this.hpBarGraphics.clear();
-    
-    this.enemyPlaceholders.forEach(enemy => {
-      if (enemy.hp <= 0 || !enemy.sprite.visible) return;
-      
-      const barW = 40;
-      const barH = 5;
-      const x = enemy.x - barW / 2;
-      const y = enemy.y - 45;
-      
-      // BG
-      this.hpBarGraphics.fillStyle(0x000000, 0.6);
-      this.hpBarGraphics.fillRect(x, y, barW, barH);
-      
-      // HP
-      const ratio = enemy.hp / enemy.maxHp;
-      this.hpBarGraphics.fillStyle(0xff0000, 1);
-      this.hpBarGraphics.fillRect(x, y, barW * ratio, barH);
-    });
   }
 
   // --- Factories ---
@@ -477,43 +563,51 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.obstacles);
   }
 
+  setPlayerAnimation(moving = false, directionX = 0) {
+    if (!this.player) return;
+    if (directionX !== 0) this.player.setFlipX(directionX < 0);
+    const animKey = moving ? "player-run" : "player-idle";
+    if (this.anims.exists(animKey)) this.player.play(animKey, true);
+  }
+
   createEnemyPlaceholders() {
-    const enemyPool = this.dungeonDef.enemyPool || ["kekon"];
     this.dungeonLayoutData.rooms.forEach(room => {
       if (room.type === 'combat') {
         const count = Phaser.Math.Between(2, 4);
         for(let i=0; i<count; i++) {
           const rx = room.x + Phaser.Math.Between(-room.w/3, room.w/3);
           const ry = room.y + Phaser.Math.Between(-room.h/3, room.h/3);
-          const type = enemyPool[Phaser.Math.Between(0, enemyPool.length - 1)];
-          this.spawnEnemy(type, rx, ry, room.phaseId);
+          this.createKekon(rx, ry, room.phaseId);
         }
       } else if (room.type === 'boss') {
-        this.spawnEnemy("kekon_boss", room.x, room.y, room.phaseId, true);
+        this.createKekonBoss(room.x, room.y, room.phaseId);
       }
     });
   }
 
-  spawnEnemy(type, x, y, phaseId, isBoss = false) {
-    const stats = GameState.getScaledEnemyStats(this.registry, type, phaseId, this.difficultyKey, this.dungeonId);
-    const idleAnim = isBoss ? "enemy-kekon-boss-idle" : `enemy-${type.replace('_', '-')}-idle`;
-    const runAnim = isBoss ? "enemy-kekon-boss-run" : `enemy-${type.replace('_', '-')}-run`;
-    
-    const sprite = this.add.sprite(x, y, isBoss ? "enemy_kekon_boss_idle" : `enemy_${type}_idle`).setScale(isBoss ? 0.6 : 0.3).setDepth(9);
-    const shadow = this.add.ellipse(x, y + (isBoss ? 44 : 22), isBoss ? 80 : 38, isBoss ? 30 : 14, 0x000000, isBoss ? 0.3 : 0.22).setDepth(8);
-    sprite.play(idleAnim);
+  createKekon(x, y, phaseId) {
+    const sprite = this.add.sprite(x, y, "enemy_kekon_idle").setScale(0.3).setDepth(9);
+    const shadow = this.add.ellipse(x, y + 22, 38, 14, 0x000000, 0.22).setDepth(8);
+    sprite.play("enemy-kekon-idle");
     
     this.enemyPlaceholders.push({
-      x, y, 
-      hp: stats.hp, 
-      maxHp: stats.hp,
-      speed: stats.speed, 
-      damage: stats.damage,
+      x, y, hp: 30, speed: 60, damage: 8, attackRange: 92,
       sprite, visuals: [sprite, shadow],
-      idleAnim, runAnim,
-      phaseId,
-      isBoss,
-      name: isBoss ? this.dungeonDef.bossName || "Boss" : type.replace('_', ' ')
+      idleAnim: "enemy-kekon-idle", runAnim: "enemy-kekon-run",
+      phaseId
+    });
+  }
+
+  createKekonBoss(x, y, phaseId) {
+    const sprite = this.add.sprite(x, y, "enemy_kekon_boss_idle").setScale(0.6).setDepth(9);
+    const shadow = this.add.ellipse(x, y + 44, 80, 30, 0x000000, 0.3).setDepth(8);
+    sprite.play("enemy-kekon-boss-idle");
+    
+    this.enemyPlaceholders.push({
+      x, y, hp: 300, speed: 40, damage: 20, attackRange: 128, isBoss: true,
+      sprite, visuals: [sprite, shadow],
+      idleAnim: "enemy-kekon-boss-idle", runAnim: "enemy-kekon-boss-run",
+      phaseId
     });
   }
 
@@ -551,10 +645,12 @@ class DungeonPrototypeScene extends Phaser.Scene {
       quests: { open: false, elements: [] },
       character: { open: false, elements: [] }
     };
-    this.inventoryOpen = false;
-    this.skillPanelOpen = false;
-    this.questListOpen = false;
-    this.characterOpen = false;
+    this.dungeonPanels = {
+      inventory: window.InventoryPanel ? new InventoryPanel(this, this.registry, window.GameState) : null,
+      skills: window.SkillPanel ? new SkillPanel(this, this.registry, window.GameState) : null,
+      quests: window.QuestPanel ? new QuestPanel(this, this.registry, window.GameState) : null,
+      character: window.CharacterPanel ? new CharacterPanel(this, this.registry, window.GameState) : null,
+    };
   }
 
   togglePanel(type) {
@@ -569,14 +665,17 @@ class DungeonPrototypeScene extends Phaser.Scene {
 
   showPanel(type) {
     this.uiPanels[type].open = true;
-    this[type + "Open"] = true; // Sync legacy flags
+    if (this.dungeonPanels?.[type]) {
+      this.dungeonPanels[type].show();
+      return;
+    }
     if (this.uiPanels[type].elements.length === 0) this.createPanelUi(type);
     this.uiPanels[type].elements.forEach(el => el.setVisible(true));
   }
 
   hidePanel(type) {
     this.uiPanels[type].open = false;
-    this[type + "Open"] = false; // Sync legacy flags
+    this.dungeonPanels?.[type]?.hide?.();
     this.uiPanels[type].elements.forEach(el => el.setVisible(false));
     this.game?.canvas?.focus();
   }
@@ -596,10 +695,6 @@ class DungeonPrototypeScene extends Phaser.Scene {
   }
 
   handleGlobalPanelClose() {
-    if (this.dialogOpen) {
-      this.closeDialog();
-      return true;
-    }
     const active = Object.keys(this.uiPanels).find(k => this.uiPanels[k].open);
     if (active) {
       this.hidePanel(active);
@@ -609,71 +704,44 @@ class DungeonPrototypeScene extends Phaser.Scene {
   }
 
   drawUiLayer() {
-    const { width, height } = this.scale;
-    this.hpBar = this.add.rectangle(20, height - 40, 200, 20, 0xff0000).setOrigin(0, 0.5).setScrollFactor(0).setDepth(100);
-    this.mpBar = this.add.rectangle(20, height - 15, 150, 10, 0x0000ff).setOrigin(0, 0.5).setScrollFactor(0).setDepth(100);
+    const { width } = this.scale;
+    this.add.rectangle(20, 82, 220, 20, 0x1a2833, 0.9).setStrokeStyle(2, 0x415260, 0.8).setOrigin(0, 0.5).setScrollFactor(0).setDepth(100);
+    this.hpBar = this.add.rectangle(22, 82, 216, 16, 0xff5555, 0.95).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
+    this.add.rectangle(20, 110, 220, 14, 0x1a2833, 0.9).setStrokeStyle(2, 0x415260, 0.8).setOrigin(0, 0.5).setScrollFactor(0).setDepth(100);
+    this.mpBar = this.add.rectangle(22, 110, 216, 10, 0x5588ff, 0.95).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
+    this.add.rectangle(20, 133, 220, 12, 0x1a2833, 0.9).setStrokeStyle(1, 0x415260, 0.8).setOrigin(0, 0.5).setScrollFactor(0).setDepth(100);
+    this.xpBar = this.add.rectangle(22, 133, 0, 8, 0xffd34f, 0.95).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
+    this.xpText = this.add.text(246, 133, "", { fontSize: "10px", color: "#ffdf78", stroke: "#000", strokeThickness: 2 }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+    this.add.rectangle(width - 105, 82, 170, 126, 0x101820, 0.82).setStrokeStyle(2, 0x60767b, 0.8).setScrollFactor(0).setDepth(100);
+    this.add.text(width - 178, 28, "Mini Map", { fontSize: "12px", color: "#f8f1dc", stroke: "#000", strokeThickness: 2 }).setScrollFactor(0).setDepth(101);
+    this.dungeonMinimapBounds = { x: width - 178, y: 48, width: 146, height: 84 };
+    this.add.rectangle(this.dungeonMinimapBounds.x + 73, this.dungeonMinimapBounds.y + 42, 146, 84, 0x1e2630, 0.92).setStrokeStyle(1, 0x314554, 0.8).setScrollFactor(0).setDepth(101);
+    this.dungeonMinimapDot = this.add.circle(this.dungeonMinimapBounds.x + 73, this.dungeonMinimapBounds.y + 42, 4, 0xf8f1dc).setScrollFactor(0).setDepth(102);
   }
 
   refreshHudPanel() {
     const hpRatio = Math.max(0, this.currentHp / GameState.getMaxHp(this.registry));
     const mpRatio = Math.max(0, this.currentMp / GameState.getMaxMp(this.registry));
-    this.hpBar.width = 200 * hpRatio;
-    this.mpBar.width = 150 * mpRatio;
+    const xpState = GameState.getPlayerXpState?.(this.registry) || { level: this.registry.get("playerLevel") || 1, xp: this.registry.get("playerXp") || 0, next: 145 };
+    const xpRatio = Math.max(0, Math.min(1, xpState.xp / Math.max(1, xpState.next)));
+    this.hpBar.width = 216 * hpRatio;
+    this.mpBar.width = 216 * mpRatio;
+    if (this.xpBar) this.xpBar.width = 216 * xpRatio;
+    if (this.xpText) this.xpText.setText(`Lv ${xpState.level} ${xpState.xp}/${xpState.next}`);
+    if (this.dungeonMinimapDot && this.player && this.dungeonMinimapBounds) {
+      const bounds = this.physics.world.bounds;
+      const rx = Math.max(0, Math.min(1, this.player.x / Math.max(1, bounds.width)));
+      const ry = Math.max(0, Math.min(1, this.player.y / Math.max(1, bounds.height)));
+      this.dungeonMinimapDot.setPosition(this.dungeonMinimapBounds.x + rx * this.dungeonMinimapBounds.width, this.dungeonMinimapBounds.y + ry * this.dungeonMinimapBounds.height);
+    }
   }
 
   drawDungeonHeader() {
     const { width } = this.scale;
-    const diffDef = GameState.getDungeonDifficultyDef(this.registry, this.difficultyKey);
-    const diffLabel = diffDef ? diffDef.label : "Normal";
-    
-    this.add.rectangle(width/2, 30, 420, 40, 0x000000, 0.6).setScrollFactor(0).setDepth(100);
-    this.dungeonTitle = this.add.text(width/2, 30, `${this.dungeonDef.name.toUpperCase()} - ${diffLabel.toUpperCase()}`, { 
-      fontSize: "20px", 
-      color: "#f4df9c",
-      fontStyle: "bold"
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-    
-    this.drawSkillBar();
-  }
-
-  drawSkillBar() {
-    const { width, height } = this.scale;
-    const slotCount = 6;
-    const slotSize = 48;
-    const gap = 8;
-    const totalW = slotCount * (slotSize + gap) - gap;
-    const startX = (width - totalW) / 2;
-    const startY = height - 50;
-
-    // Hotbar BG panel
-    this.add.rectangle(width/2, startY + 5, totalW + 20, 64, 0x000000, 0.5).setScrollFactor(0).setDepth(90);
-
-    const hotbarSlots = this.registry.get("hotbarSlots") || [null, null, null, null, null, null];
-    
-    this.hotbarSlotVisuals.forEach(v => {
-      if (v.bg) v.bg.destroy();
-      if (v.icon) v.icon.destroy();
-      if (v.label) v.label.destroy();
-    });
-    this.hotbarSlotVisuals = [];
-
-    for (let i = 0; i < slotCount; i++) {
-      const x = startX + i * (slotSize + gap);
-      const bg = this.add.image(x, startY, "slot_normal").setDisplaySize(slotSize, slotSize).setScrollFactor(0).setDepth(91);
-      
-      const itemId = hotbarSlots[i];
-      let icon = null;
-      if (itemId) {
-        const skill = GameState.getClassSkillDef(itemId) || GameState.getConsumableDef(itemId);
-        if (skill) {
-          icon = this.add.image(x, startY, skill.icon || "icon_05").setDisplaySize(slotSize - 8, slotSize - 8).setScrollFactor(0).setDepth(92);
-          if (skill.tint) icon.setTint(skill.tint);
-        }
-      }
-
-      const label = this.add.text(x - 18, startY - 18, (i + 1).toString(), { fontSize: "10px", color: "#888" }).setScrollFactor(0).setDepth(93);
-      this.hotbarSlotVisuals.push({ bg, icon, label });
-    }
+    const templateName = this.dungeonTemplate?.name || (window.DungeonTemplates?.get?.(this.selectedDungeonId)?.name) || "Forgotten Halls";
+    const diffLabel = this.selectedDifficulty?.label || "Normal";
+    this.add.rectangle(width/2, 30, 460, 42, 0x000000, 0.68).setScrollFactor(0).setDepth(100);
+    this.dungeonTitle = this.add.text(width/2, 30, templateName.toUpperCase() + "  -  " + diffLabel.toUpperCase(), { fontSize: "18px", color: "#f4df9c" }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
   }
 
   // --- Helpers ---
@@ -683,6 +751,8 @@ class DungeonPrototypeScene extends Phaser.Scene {
       { key: "player-run", tex: "player_run_sheet", end: 5 },
       { key: "enemy-kekon-idle", tex: "enemy_kekon_idle", end: 6 },
       { key: "enemy-kekon-run", tex: "enemy_kekon_run", end: 5 },
+      { key: "enemy-kekon-warrior-idle", tex: "enemy_kekon_warrior_idle", end: 6 },
+      { key: "enemy-kekon-warrior-run", tex: "enemy_kekon_warrior_run", end: 5 },
       { key: "enemy-kekon-boss-idle", tex: "enemy_kekon_boss_idle", end: 6 },
       { key: "enemy-kekon-boss-run", tex: "enemy_kekon_boss_run", end: 5 },
       { key: "fx-dust-01", tex: "fx_dust_01", end: 7, rate: 20 },
@@ -747,7 +817,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
   createInteractionUi() {
     this.interactionPrompt = this.add.container(0, 0).setDepth(1000).setScrollFactor(0).setVisible(false);
     const bg = this.add.rectangle(0, 0, 220, 40, 0x000000, 0.8).setOrigin(0.5);
-    const txt = this.add.text(0, 0, "[E] INTERACT", { fontSize: "16px", color: "#ffffff" }).setOrigin(0.5);
+    const txt = this.add.text(0, 0, "[E / ENTER] INTERACT", { fontSize: "16px", color: "#ffffff" }).setOrigin(0.5);
     this.interactionPrompt.add([bg, txt]);
   }
 
@@ -756,6 +826,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
     let minDist = 100;
     
     this.interactables.forEach(i => {
+      if (i.active === false) return;
       const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, i.x, i.y);
       if (d < (i.promptRadius || 80) && d < minDist) {
         minDist = d;

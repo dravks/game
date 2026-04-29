@@ -7,3 +7,17 @@ build/
 out/
 .vscode/
 .idea/
+*.zip
+*.rar
+*_raw.txt
+eror.txt
+fix_*.js
+fix_*.py
+rewrite_*.py
+__MACOSX/
+*.psd
+*.aseprite
+*.url
+COUPON.*
+*.backup
+*.original.js

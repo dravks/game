@@ -15,7 +15,7 @@ const config = {
       debug: false,
     },
   },
-  scene: [window.CharacterCreateScene, window.PrototypeScene, window.DungeonPrototypeScene],
+  scene: [window.CharacterCreateScene, window.PrototypeScene, window.OverworldScene, window.DungeonPrototypeScene],
   // Debug: Show errors in console
   load: {
     baseURL: "",
