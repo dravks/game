@@ -38,6 +38,7 @@
       if (type === "anvil" || type === "upgrader") return this.createAnvilBoardPanel();
       if (type === "potion") return this.createPotionServicePanel();
       if (type === "sundries" || type === "blacksmith") return this.createSundriesServicePanel();
+      if (type === "mmo_systems" || type === "economy" || type === "pvp") return this.createMmoSystemsPanel();
       return this.createMessagePanel("Service", "This service is not available yet.");
     };
 
@@ -55,14 +56,23 @@
 
     SM.createSundriesServicePanel = function () {
       const scene = this.scene;
-      const m = this.createBasePanel("Sundries", "General goods and selling. Potions are sold only by the Potion Merchant.");
+      const m = this.createBasePanel("Sundries", "General goods, repair, crafting, and selling. Potions are sold only by the Potion Merchant.");
       const materials = GS.getMaterials?.(scene.registry) || {};
       const materialLine = Object.entries(materials)
         .filter(([, amount]) => amount > 0)
         .map(([id, amount]) => `${GS.MATERIAL_DEFS?.[id]?.name || id} x${amount}`)
         .join(" | ");
+      const repairPlan = GS.getAllRepairPlan?.(scene.registry) || { sources: [], damaged: [], totalCost: 0 };
       const entries = [
-        { name: "Buy Town Scroll", description: "Utility item for later systems.", cost: GS.SHOP_ITEMS.returnScroll.price, action: () => this.buyShopItemFromPanel("returnScroll", "sundries") },
+        {
+          name: "Full Repair",
+          description: repairPlan.sources?.length
+            ? `${repairPlan.damaged?.length || 0}/${repairPlan.sources.length} equipped/bag gear items need repair.`
+            : "No equipment found in equipped slots or inventory.",
+          cost: repairPlan.totalCost || 0,
+          action: () => this.repairAllGearFromPanel(),
+        },
+        { name: "Buy Town Scroll", description: "Utility item for later systems.", cost: GS.SHOP_ITEMS.returnScroll?.price || 10, action: () => this.buyShopItemFromPanel("returnScroll", "sundries") },
         { name: "Craft Class Gear Cache", description: materialLine || "Needs Boss Core x2 and class material x4.", cost: 0, action: () => this.craftClassGearCacheFromPanel() },
       ];
       const inventory = GS.getInventoryItems(scene.registry) || [];
@@ -74,6 +84,28 @@
       if (materialLine) serviceText(scene, m.panelX + 34, m.panelY + 72, `Materials: ${materialLine}`, { color: "#8ad97a", fontSize: "11px", wordWrap: { width: m.panelW - 68 } });
       entries.slice(0, 10).forEach((entry, index) => this.createButtonRow(index, entry, m.panelY + 92 + index * 50, m.panelX, m.panelW));
       this.updateServiceSelection();
+    };
+
+    SM.repairAllGearFromPanel = function () {
+      const result = GS.repairAllGear?.(this.scene.registry) || { ok: false };
+      if (result.ok) {
+        const msg = result.reason === "already_full" ? "All gear durability already full" : `${result.repaired || 0}/${result.total || 0} gear repaired | -${result.cost || 0} Gold`;
+        safeBanner(this.scene, "Repair", msg, 1800);
+      } else {
+        safeBanner(this.scene, "Repair Failed", result.reason === "gold" ? `Need ${result.cost} Gold` : "No gear found", 1800);
+      }
+      this.scene.refreshInventoryUI?.();
+      this.scene.refreshCityUi?.();
+      this.createSundriesServicePanel();
+    };
+
+    SM.repairSourceFromPanel = function (source) {
+      const result = GS.repairEquipmentAtSource?.(this.scene.registry, source) || { ok: false };
+      if (result.ok) safeBanner(this.scene, "Repaired", result.alreadyFull ? "Durability already full" : `-${result.cost} Gold`, 1600);
+      else safeBanner(this.scene, "Repair Failed", result.reason === "gold" ? `Need ${result.cost} Gold` : "Equipment only", 1800);
+      this.scene.refreshInventoryUI?.();
+      this.scene.refreshCityUi?.();
+      this.createSundriesServicePanel();
     };
 
     SM.craftClassGearCacheFromPanel = function () {

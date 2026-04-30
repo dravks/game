@@ -42,6 +42,7 @@ class CharacterCreateScene extends Phaser.Scene {
       frameWidth: 192,
       frameHeight: 192,
     });
+    this.loadClassAndCatImages();
   }
 
   create() {
@@ -189,8 +190,8 @@ class CharacterCreateScene extends Phaser.Scene {
     }).setOrigin(0.5, 0).setDepth(10);
 
     this.add.ellipse(x + width / 2, y + 202, 110, 26, 0x000000, 0.22).setDepth(8).setScrollFactor(0);
-    this.previewSprite = this.add.sprite(x + width / 2, y + 146, "class_warrior_idle", 0)
-      .setScale(0.54)
+    this.previewSprite = this.add.sprite(x + width / 2, y + 146, "hero_preview_warrior")
+      .setDisplaySize(96, 96)
       .setDepth(10)
       .setScrollFactor(0);
     this.previewClassText = this.createUiText(x + width / 2, y + 220, "", {
@@ -306,7 +307,22 @@ class CharacterCreateScene extends Phaser.Scene {
     });
   }
 
+  loadClassAndCatImages() {
+    const base = "class%20and%20cat/";
+    const folders = {
+      warrior: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_warri",
+      mage: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_mage",
+      rogue: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_rogue",
+      archer: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_arche",
+    };
+    Object.entries(folders).forEach(([className, folder]) => {
+      this.load.image(`hero_preview_${className}`, `${base}${folder}/rotations/south.png`);
+    });
+  }
+
   getClassPreviewTexture(className) {
+    const generatedKey = `hero_preview_${className || "warrior"}`;
+    if (this.textures.exists(generatedKey)) return generatedKey;
     const textureMap = {
       warrior: "class_warrior_idle",
       mage: "class_mage_idle",
@@ -376,8 +392,15 @@ class CharacterCreateScene extends Phaser.Scene {
     };
 
     const previewTexture = this.getClassPreviewTexture(this.currentClass);
-    this.previewSprite.setTexture(previewTexture, 0);
-    this.previewSprite.play(`preview-${this.currentClass}-idle`, true);
+    this.previewSprite.setTexture(previewTexture);
+    if (previewTexture.startsWith("hero_preview_")) {
+      this.previewSprite.stop();
+      this.previewSprite.setDisplaySize(96, 96);
+      this.previewSprite.setFlipX(false);
+    } else {
+      this.previewSprite.setScale(0.54);
+      this.previewSprite.play(`preview-${this.currentClass}-idle`, true);
+    }
     this.previewClassText.setText((this.currentClass || "warrior").toUpperCase());
     this.previewWeaponText.setText(this.currentEquipment.weapon ? this.currentEquipment.weapon.name : "No starter weapon");
 

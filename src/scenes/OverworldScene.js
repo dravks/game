@@ -13,12 +13,15 @@ class OverworldScene extends Phaser.Scene {
     this.fieldDrops = [];
     this.petSummoned = false;
     this.pet = null;
+    this.lastPetToggleAt = 0;
+    this.mercenary = null;
   }
 
   preload() {
     this.load.spritesheet("player_idle_sheet", "assets/sprites/units/player_idle.png", { frameWidth: 192, frameHeight: 192 });
     this.load.spritesheet("player_run_sheet", "assets/sprites/units/player_run.png", { frameWidth: 192, frameHeight: 192 });
     this.loadClassAndPetImages();
+    this.loadOverworldTinySwordsAssets();
 
     // CraftPix-style top-down slime spritesheets. Each sheet is 384x256, 64x64 frames.
     // The folder name contains a space, so URLs are encoded with %20 for safer browser loading.
@@ -35,8 +38,8 @@ class OverworldScene extends Phaser.Scene {
   }
 
   create() {
-    const width = 2600;
-    const height = 1600;
+    const width = 4600;
+    const height = 2400;
     this.physics.world.setBounds(0, 0, width, height);
     this.cameras.main.setBounds(0, 0, width, height);
     this.cameras.main.setBackgroundColor("#183926");
@@ -47,13 +50,16 @@ class OverworldScene extends Phaser.Scene {
 
     this.createAnimations();
     this.drawField(width, height);
-    this.createPlayer(180, height / 2);
+    this.createPlayer(260, height / 2);
+    this.createMercenaryCompanion();
     this.createInput();
 
     this.uiManager = new UIManager(this);
     this.uiManager.init();
     this.uiManager.drawUiLayer(this.scale.width, this.scale.height);
     this.createHud();
+    this.drawOverworldMinimapZones();
+    this.drawOverworldHotbarFrame();
     this.spawnFieldMobs();
 
     this.input.on("pointerdown", (pointer) => {
@@ -67,8 +73,16 @@ class OverworldScene extends Phaser.Scene {
   }
 
   createPlayer(x, y) {
-    this.player = this.physics.add.sprite(x, y, "player_idle_sheet", 0).setScale(0.32).setDepth(20);
-    this.player.body.setSize(42, 42).setOffset(76, 120);
+    const classTexture = this.getClassPlayerTextureKey(this.playerFacing);
+    this.player = classTexture
+      ? this.physics.add.sprite(x, y, classTexture).setScale(1).setDepth(20)
+      : this.physics.add.sprite(x, y, "player_idle_sheet", 0).setScale(0.32).setDepth(20);
+    if (classTexture) {
+      this.player.setDisplaySize(44, 44);
+      this.player.body.setSize(30, 30).setOffset(7, 7);
+    } else {
+      this.player.body.setSize(42, 42).setOffset(76, 120);
+    }
     this.player.body.setCollideWorldBounds(true);
     if (this.decorationColliders) this.physics.add.collider(this.player, this.decorationColliders);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
@@ -87,15 +101,17 @@ class OverworldScene extends Phaser.Scene {
     [1, 2, 3, 4, 5, 6].forEach((slot) => {
       this.input.keyboard.on(`keydown-${slot}`, () => this.useHotbarSlot(slot - 1));
     });
+    this.input.keyboard.on("keydown-P", () => this.togglePet());
     this.__domOverworldKeyHandler = (event) => {
       if (!this.scene?.isActive?.("OverworldScene")) return;
-      if (document.activeElement === this.game?.canvas) return;
       const key = event.key?.toLowerCase?.();
       if (/^[1-6]$/.test(event.key)) {
+        if (document.activeElement === this.game?.canvas) return;
         this.useHotbarSlot(Number(event.key) - 1);
         event.preventDefault();
       }
       if (["i", "c", "k", "q"].includes(key)) {
+        if (document.activeElement === this.game?.canvas) return;
         const map = {
           i: () => this.uiManager?.toggleInventoryPanel?.(),
           c: () => this.uiManager?.toggleCharacterPanel?.(),
@@ -163,135 +179,496 @@ class OverworldScene extends Phaser.Scene {
     dirs.forEach((dir) => this.load.image(`pet_cat_${dir}`, `${base}kedi%20pet/rotations/${dir}.png`));
   }
 
-  drawField(width, height) {
-    this.add.rectangle(width / 2, height / 2, width, height, 0x2f5a35).setDepth(0);
+  loadOverworldTinySwordsAssets() {
+    const root = "Tiny%20Swords%20(Free%20Pack)/Tiny%20Swords%20(Free%20Pack)/";
+    this.load.image("ow_tile_grass", `${root}Terrain/Tileset/Tilemap_color1.png`);
+    this.load.image("ow_tile_meadow", `${root}Terrain/Tileset/Tilemap_color2.png`);
+    this.load.image("ow_tile_dark", `${root}Terrain/Tileset/Tilemap_color3.png`);
+    this.load.image("ow_water", `${root}Terrain/Tileset/Water%20Background%20color.png`);
+    this.load.image("ow_water_foam", `${root}Terrain/Tileset/Water%20Foam.png`);
+    this.load.image("ow_shadow", `${root}Terrain/Tileset/Shadow.png`);
+    ["1", "2", "3", "4"].forEach((n) => {
+      this.load.image(`ow_tree${n}`, `${root}Terrain/Resources/Wood/Trees/Tree${n}.png`);
+      this.load.image(`ow_stump${n}`, `${root}Terrain/Resources/Wood/Trees/Stump%20${n}.png`);
+      this.load.image(`ow_rock${n}`, `${root}Terrain/Decorations/Rocks/Rock${n}.png`);
+      this.load.image(`ow_bush${n}`, `${root}Terrain/Decorations/Bushes/Bushe${n}.png`);
+    });
+    this.load.image("ow_wood", `${root}Terrain/Resources/Wood/Wood%20Resource/Wood%20Resource.png`);
+    this.load.image("ow_gold", `${root}Terrain/Resources/Gold/Gold%20Resource/Gold_Resource.png`);
+    this.load.image("ow_tool_axe", `${root}Terrain/Resources/Tools/Tool_01.png`);
+    this.load.image("ow_tool_pick", `${root}Terrain/Resources/Tools/Tool_02.png`);
+    this.load.image("ow_sheep", `${root}Terrain/Resources/Meat/Sheep/Sheep_Idle.png`);
+    this.load.image("ow_house1", `${root}Buildings/Blue%20Buildings/House1.png`);
+    this.load.image("ow_house2", `${root}Buildings/Blue%20Buildings/House2.png`);
+    this.load.image("ow_tower", `${root}Buildings/Blue%20Buildings/Tower.png`);
+    this.load.image("ow_barracks", `${root}Buildings/Blue%20Buildings/Barracks.png`);
+    this.load.image("ow_archery", `${root}Buildings/Blue%20Buildings/Archery.png`);
+  }
 
-    // Soft grass patches.
-    for (let x = 120; x < width; x += 180) {
-      for (let y = 120; y < height; y += 160) {
-        const tint = (x + y) % 3 === 0 ? 0x244b2f : 0x3d6c38;
-        this.add.circle(x + Phaser.Math.Between(-30, 30), y + Phaser.Math.Between(-25, 25), Phaser.Math.Between(18, 42), tint, 0.45).setDepth(1);
-      }
+  drawField(width, height) {
+    if (this.textures.exists("ow_tile_grass")) {
+      this.add.tileSprite(width / 2, height / 2, width, height, "ow_tile_grass").setTint(0x5f8a4a).setAlpha(0.86).setDepth(0);
+    } else {
+      this.add.rectangle(width / 2, height / 2, width, height, 0x2f5a35).setDepth(0);
     }
 
-    // Zone hints: safer grass near the gate, darker slime nest further away.
-    this.add.rectangle(590, height / 2, 650, height - 180, 0x3e6f3a, 0.11).setDepth(1);
-    this.add.rectangle(1360, height / 2, 700, height - 150, 0x2b633f, 0.12).setDepth(1);
-    this.add.rectangle(2180, height / 2, 560, height - 120, 0x1f4d3c, 0.2).setDepth(1);
-
+    // Maradon dışı hissi: batı kapısından çıkan taş yol, güvenli kamp ve doğuya doğru tehlikeli ovalar.
+    this.add.rectangle(650, height / 2, 980, height - 240, 0x436d38, 0.16).setDepth(1);
+    this.add.rectangle(1830, height / 2, 1120, height - 220, 0x2d6542, 0.15).setDepth(1);
+    this.add.rectangle(3260, height / 2, 1600, height - 160, 0x1e4d3c, 0.2).setDepth(1);
     this.decorationColliders = this.physics.add.staticGroup();
+    this.drawRoadPath(width, height);
+    this.drawRiverEdge(width, height);
+
     this.drawFieldDecorations(width, height);
+    this.createMapBoundaryColliders(width, height);
     this.drawCityReturnGate(height);
   }
 
-  drawFieldDecorations(width, height) {
-    const decor = [
-      { x: 360, y: 190, r: 38, c: 0x23452d }, { x: 430, y: 1380, r: 44, c: 0x23452d },
-      { x: 790, y: 260, r: 32, c: 0x1f4029 }, { x: 900, y: 1260, r: 46, c: 0x244b2f },
-      { x: 1340, y: 170, r: 40, c: 0x1f4029 }, { x: 1590, y: 1440, r: 52, c: 0x244b2f },
-      { x: 2110, y: 240, r: 48, c: 0x1c3b2b }, { x: 2390, y: 1320, r: 58, c: 0x1c3b2b },
+  drawRoadPath(width, height) {
+    const centerY = height / 2;
+    const points = [
+      { x: 70, y: centerY },
+      { x: 540, y: centerY - 8 },
+      { x: 980, y: centerY - 130 },
+      { x: 1450, y: centerY + 60 },
+      { x: 2050, y: centerY - 20 },
+      { x: 2750, y: centerY + 150 },
+      { x: width - 540, y: centerY - 30 },
     ];
-    decor.forEach((d) => {
-      const tree = this.add.circle(d.x, d.y, d.r, d.c, 0.95).setDepth(4);
-      this.add.circle(d.x - 10, d.y - 8, d.r * 0.55, 0x315f35, 0.55).setDepth(5);
-      const blocker = this.add.circle(d.x, d.y, Math.max(16, d.r * 0.45), 0x000000, 0);
-      this.physics.add.existing(blocker, true);
-      this.decorationColliders.add(blocker);
-      tree.setData("blocker", blocker);
-    });
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
+      const len = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
+      const angle = Phaser.Math.Angle.Between(a.x, a.y, b.x, b.y);
+      this.add.rectangle(midX, midY + 8, len + 24, 118, 0x18120c, 0.18).setRotation(angle).setDepth(1.2);
+      this.add.rectangle(midX, midY, len + 18, 86, 0xa98255, 0.56).setRotation(angle).setDepth(1.3);
+      this.add.rectangle(midX, midY - 18, len + 10, 20, 0xd0b178, 0.2).setRotation(angle).setDepth(1.4);
+    }
+    for (let i = 0; i < 90; i++) {
+      const p = Phaser.Utils.Array.GetRandom(points);
+      const x = Phaser.Math.Between(Math.max(120, p.x - 320), Math.min(width - 120, p.x + 320));
+      const y = p.y + Phaser.Math.Between(-58, 58);
+      this.add.ellipse(x, y, Phaser.Math.Between(7, 18), Phaser.Math.Between(4, 10), 0x6d573f, 0.35).setDepth(1.5);
+    }
+  }
 
-    for (let i = 0; i < 24; i++) {
-      const x = Phaser.Math.Between(290, width - 140);
-      const y = Phaser.Math.Between(110, height - 110);
-      const rock = this.add.ellipse(x, y, Phaser.Math.Between(18, 34), Phaser.Math.Between(12, 24), 0x3f4c45, 0.72).setDepth(3);
-      if (i % 4 === 0) {
-        const blocker = this.add.ellipse(x, y, 22, 14, 0x000000, 0);
-        this.physics.add.existing(blocker, true);
-        this.decorationColliders.add(blocker);
-        rock.setData("blocker", blocker);
+  drawRiverEdge(width, height) {
+    const waterY = height - 230;
+    this.add.rectangle(width / 2, waterY + 210, width, 430, 0x163f57, 0.82).setDepth(0.4);
+    if (this.textures.exists("ow_water")) {
+      this.add.tileSprite(width / 2, waterY + 210, width, 430, "ow_water").setTint(0x5b95a8).setAlpha(0.8).setDepth(0.5);
+    }
+    for (let x = 80; x < width; x += 180) {
+      const y = waterY + Math.sin(x / 170) * 22;
+      this.add.ellipse(x, y, 230, 56, 0x22361f, 0.42).setDepth(1.1);
+      this.add.ellipse(x + 28, y + 24, 190, 38, 0x759d64, 0.2).setDepth(1.15);
+      if (this.textures.exists("ow_water_foam")) {
+        this.add.image(x + 40, y + 78, "ow_water_foam").setDisplaySize(120, 34).setAlpha(0.4).setDepth(1.2);
       }
     }
+    this.addStaticBlock(width / 2 - 470, height - 90, width - 980, 250, "river-bank");
+    this.addStaticBlock(520, height - 120, 960, 220, "river-west-bank");
+    this.addStaticBlock(width - 320, height - 120, 640, 220, "river-east-bank");
+    this.addStaticBlock(1850, height - 232, 620, 64, "river-left-rail");
+    this.addStaticBlock(2880, height - 232, 720, 64, "river-right-rail");
+  }
 
-    // Slime nest / mini-boss arena visual.
-    this.add.circle(2320, 800, 145, 0x153a34, 0.54).setDepth(2);
-    this.add.circle(2320, 800, 92, 0x3a6d58, 0.24).setDepth(2);
-    this.add.text(2320, 642, "King Slime Nest", { fontSize: "15px", color: "#d7ffc9", stroke: "#000", strokeThickness: 3 }).setOrigin(0.5).setDepth(4);
+  drawFieldDecorations(width, height) {
+    this.drawSafeZoneFences(width, height);
+    this.drawOutpostCluster();
+    this.drawBridgeCrossing(width, height);
+    this.drawResourceCamps(width, height);
+    this.drawForestBelts(width, height);
+    this.drawZoneMarkers(width, height);
+    this.drawSlimeNest(width, height);
+  }
+
+  drawSafeZoneFences(width, height) {
+    const centerY = height / 2;
+    this.add.rectangle(690, centerY, 1110, 690, 0x0b1410, 0.08).setStrokeStyle(4, 0xd2b56f, 0.26).setDepth(1.6);
+    const fenceSegments = [
+      { x: 410, y: 760, w: 540, h: 16, rot: 0 },
+      { x: 980, y: 790, w: 430, h: 16, rot: 0.12 },
+      { x: 410, y: 1660, w: 560, h: 16, rot: 0 },
+      { x: 1000, y: 1635, w: 460, h: 16, rot: -0.12 },
+      { x: 1220, y: 1210, w: 16, h: 500, rot: 0 },
+    ];
+    fenceSegments.forEach((f) => this.add.rectangle(f.x, f.y, f.w, f.h, 0x6f5031, 0.92).setRotation(f.rot).setDepth(7));
+    for (let x = 185; x <= 1220; x += 86) {
+      const topY = x < 900 ? 760 : 790 + (x - 900) * 0.08;
+      const bottomY = x < 900 ? 1660 : 1635 - (x - 900) * 0.07;
+      this.add.rectangle(x, topY, 18, 38, 0x4b351e, 0.98).setDepth(7.2);
+      this.add.rectangle(x, bottomY, 18, 38, 0x4b351e, 0.98).setDepth(7.2);
+    }
+    this.add.text(1180, 720, "Safe Field Boundary", {
+      fontSize: "12px", color: "#d7c58f", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(10);
+    this.addStaticBlock(410, 760, 540, 30, "safe-fence-top-left");
+    this.addStaticBlock(1000, 792, 430, 30, "safe-fence-top-right");
+    this.addStaticBlock(410, 1660, 560, 30, "safe-fence-bottom-left");
+    this.addStaticBlock(1000, 1635, 460, 30, "safe-fence-bottom-right");
+    this.addStaticBlock(1220, 1005, 32, 230, "safe-fence-east-upper");
+    this.addStaticBlock(1220, 1438, 32, 270, "safe-fence-east-lower");
+  }
+
+  drawBridgeCrossing(width, height) {
+    const bridgeX = 2350;
+    const bridgeY = height - 334;
+    this.add.rectangle(bridgeX, bridgeY + 34, 420, 120, 0x15100b, 0.32).setDepth(2.8);
+    this.add.rectangle(bridgeX, bridgeY, 420, 82, 0x7a5934, 0.96).setStrokeStyle(4, 0xd4b06a, 0.68).setDepth(3);
+    for (let i = -5; i <= 5; i++) {
+      this.add.rectangle(bridgeX + i * 38, bridgeY, 10, 84, 0x4e341d, 0.72).setDepth(3.2);
+    }
+    this.add.rectangle(bridgeX, bridgeY - 44, 440, 12, 0x3d2918, 0.96).setDepth(3.3);
+    this.add.rectangle(bridgeX, bridgeY + 44, 440, 12, 0x3d2918, 0.96).setDepth(3.3);
+    this.addStaticBlock(bridgeX, bridgeY - 56, 458, 18, "bridge-north-rail");
+    this.addStaticBlock(bridgeX, bridgeY + 56, 458, 18, "bridge-south-rail");
+    this.add.text(bridgeX, bridgeY - 86, "Old River Bridge", {
+      fontSize: "13px", color: "#f0d28c", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(8);
+  }
+
+  drawOutpostCluster() {
+    const buildings = [
+      { key: "ow_tower", x: 340, y: 890, w: 118, h: 118, block: [80, 68] },
+      { key: "ow_tower", x: 340, y: 1510, w: 118, h: 118, block: [80, 68] },
+      { key: "ow_barracks", x: 640, y: 1010, w: 190, h: 132, block: [142, 76] },
+      { key: "ow_archery", x: 860, y: 1435, w: 190, h: 132, block: [142, 76] },
+      { key: "ow_house1", x: 1080, y: 950, w: 150, h: 112, block: [110, 64] },
+      { key: "ow_house2", x: 1180, y: 1610, w: 155, h: 116, block: [112, 64] },
+    ];
+    buildings.forEach((b) => this.addOverworldImage(b.key, b.x, b.y, b.w, b.h, 8, true, b.block));
+    this.add.rectangle(720, 1210, 1040, 620, 0x141a17, 0.08).setStrokeStyle(3, 0xb6a16a, 0.24).setDepth(1.2);
+    this.add.text(780, 790, "AMASRA OUTSKIRTS", {
+      fontSize: "18px", color: "#f8f1dc", stroke: "#000", strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(11);
+    for (let i = 0; i < 10; i++) {
+      this.add.rectangle(430 + i * 76, i % 2 ? 760 : 1670, 46, 16, 0x6f5031, 0.85).setDepth(7);
+    }
+    this.addStaticBlock(340, 890, 88, 74, "north-watchtower");
+    this.addStaticBlock(340, 1510, 88, 74, "south-watchtower");
+    this.addStaticBlock(640, 1038, 156, 68, "barracks-footprint");
+    this.addStaticBlock(860, 1462, 156, 68, "archery-footprint");
+    this.addStaticBlock(1080, 974, 124, 62, "house1-footprint");
+    this.addStaticBlock(1180, 1635, 126, 62, "house2-footprint");
+  }
+
+  drawResourceCamps(width, height) {
+    const campItems = [
+      { key: "ow_wood", x: 1540, y: 840, w: 74, h: 58 },
+      { key: "ow_tool_axe", x: 1600, y: 890, w: 38, h: 38 },
+      { key: "ow_gold", x: 2850, y: 1540, w: 82, h: 70 },
+      { key: "ow_tool_pick", x: 2920, y: 1592, w: 38, h: 38 },
+      { key: "ow_sheep", x: 1300, y: 1510, w: 70, h: 58 },
+      { key: "ow_sheep", x: 1400, y: 1570, w: 70, h: 58 },
+    ];
+    campItems.forEach((p) => this.addOverworldImage(p.key, p.x, p.y, p.w, p.h, 6, false));
+    this.add.text(1540, 760, "Lumber Camp", { fontSize: "14px", color: "#e8d7a0", stroke: "#000", strokeThickness: 3 }).setOrigin(0.5).setDepth(9);
+    this.add.text(2860, 1450, "Old Mine", { fontSize: "14px", color: "#e8d7a0", stroke: "#000", strokeThickness: 3 }).setOrigin(0.5).setDepth(9);
+    this.drawMineMouth(3020, 1500);
+    for (let i = 0; i < 18; i++) {
+      const x = Phaser.Math.Between(1240, 1760);
+      const y = Phaser.Math.Between(680, 1040);
+      this.addOverworldImage(`ow_stump${Phaser.Math.Between(1, 4)}`, x, y, 34, 28, 5, false);
+    }
+    for (let i = 0; i < 14; i++) {
+      const x = Phaser.Math.Between(2740, 3140);
+      const y = Phaser.Math.Between(1430, 1710);
+      this.addOverworldImage(`ow_rock${Phaser.Math.Between(1, 4)}`, x, y, 48, 42, 5, i % 4 === 0, [30, 22]);
+    }
+  }
+
+  drawMineMouth(x, y) {
+    this.add.ellipse(x, y + 30, 210, 80, 0x11100e, 0.42).setDepth(5.4);
+    this.add.rectangle(x, y, 210, 118, 0x2c251f, 0.94).setStrokeStyle(4, 0x796044, 0.78).setDepth(5.5);
+    this.add.ellipse(x, y + 24, 142, 94, 0x080807, 0.98).setDepth(5.7);
+    this.add.rectangle(x - 72, y + 20, 16, 98, 0x5b3e22, 0.96).setDepth(5.9);
+    this.add.rectangle(x + 72, y + 20, 16, 98, 0x5b3e22, 0.96).setDepth(5.9);
+    this.add.rectangle(x, y - 28, 170, 16, 0x5b3e22, 0.96).setDepth(5.9);
+    this.add.circle(x - 40, y + 22, 6, 0xffc857, 0.75).setDepth(6);
+    this.add.circle(x + 36, y + 8, 4, 0xffc857, 0.45).setDepth(6);
+    this.addStaticBlock(x, y + 30, 166, 92, "mine-mouth");
+    this.addStaticBlock(x - 105, y + 12, 44, 100, "mine-left-rock");
+    this.addStaticBlock(x + 105, y + 12, 44, 100, "mine-right-rock");
+  }
+
+  drawForestBelts(width, height) {
+    const treeClusters = [
+      { x: [1160, 2100], y: [160, 560], count: 34 },
+      { x: [2100, 3600], y: [1850, 2190], count: 42 },
+      { x: [3420, 4380], y: [170, 620], count: 34 },
+      { x: [3900, 4460], y: [1380, 1840], count: 24 },
+    ];
+    treeClusters.forEach((cluster) => {
+      for (let i = 0; i < cluster.count; i++) {
+        const x = Phaser.Math.Between(cluster.x[0], cluster.x[1]);
+        const y = Phaser.Math.Between(cluster.y[0], cluster.y[1]);
+        const size = Phaser.Math.Between(70, 104);
+        this.addOverworldImage(`ow_tree${Phaser.Math.Between(1, 4)}`, x, y, size, size, 7, i % 3 === 0, [34, 26]);
+      }
+    });
+    for (let i = 0; i < 120; i++) {
+      const x = Phaser.Math.Between(520, width - 160);
+      const y = Phaser.Math.Between(180, height - 360);
+      if (Phaser.Math.Distance.Between(x, y, 720, height / 2) < 430) continue;
+      if (Math.abs(y - height / 2) < 95 && x < 3100) continue;
+      this.addOverworldImage(`ow_bush${Phaser.Math.Between(1, 4)}`, x, y, Phaser.Math.Between(28, 46), Phaser.Math.Between(20, 34), 4, false);
+    }
+  }
+
+  drawSlimeNest(width, height) {
+    const nestX = width - 620;
+    const nestY = height / 2;
+    this.add.circle(nestX, nestY, 270, 0x153a34, 0.62).setDepth(2);
+    this.add.circle(nestX, nestY, 174, 0x3a6d58, 0.3).setDepth(2.1);
+    this.add.circle(nestX, nestY, 92, 0x88d273, 0.12).setDepth(2.2);
+    for (let i = 0; i < 24; i++) {
+      const angle = (Math.PI * 2 * i) / 24;
+      const r = Phaser.Math.Between(190, 282);
+      this.addOverworldImage(`ow_rock${Phaser.Math.Between(1, 4)}`, nestX + Math.cos(angle) * r, nestY + Math.sin(angle) * r, 44, 38, 5, i % 6 === 0, [28, 20]);
+    }
+    this.addStaticBlock(nestX - 285, nestY, 84, 360, "nest-west-rock-wall");
+    this.addStaticBlock(nestX + 285, nestY, 84, 360, "nest-east-rock-wall");
+    this.addStaticBlock(nestX, nestY - 285, 360, 74, "nest-north-rock-wall");
+    this.add.text(nestX, nestY - 310, "KING SLIME NEST", { fontSize: "18px", color: "#d7ffc9", stroke: "#000", strokeThickness: 4 }).setOrigin(0.5).setDepth(8);
+  }
+
+  drawZoneMarkers(width, height) {
+    const markers = [
+      { x: 1060, y: 710, title: "Lv 1-2", subtitle: "Gate Grass", color: "#b9ff9d" },
+      { x: 1640, y: 620, title: "Lv 3-4", subtitle: "Goblin Camp", color: "#9bd3ff" },
+      { x: 2390, y: 520, title: "Lv 4-5", subtitle: "Wolf Woods", color: "#d7ffc9" },
+      { x: 2920, y: 1410, title: "Lv 5-6", subtitle: "Mine Mouth", color: "#f0d28c" },
+      { x: 3500, y: 650, title: "Lv 6-8", subtitle: "King Slime Nest", color: "#ffd36b" },
+    ];
+    markers.forEach((m) => {
+      this.add.rectangle(m.x, m.y, 150, 48, 0x071017, 0.58).setStrokeStyle(2, 0xd7c58f, 0.45).setDepth(9);
+      this.add.text(m.x, m.y - 10, m.title, { fontSize: "13px", color: m.color, stroke: "#000", strokeThickness: 3 }).setOrigin(0.5).setDepth(10);
+      this.add.text(m.x, m.y + 10, m.subtitle, { fontSize: "11px", color: "#f8f1dc", stroke: "#000", strokeThickness: 2 }).setOrigin(0.5).setDepth(10);
+    });
+  }
+
+  addOverworldImage(key, x, y, width, height, depth = 5, collider = false, blockSize = null) {
+    if (!this.textures.exists(key)) return null;
+    const shadow = this.textures.exists("ow_shadow")
+      ? this.add.image(x, y + height * 0.34, "ow_shadow").setDisplaySize(width * 0.9, Math.max(18, height * 0.22)).setAlpha(0.24).setDepth(depth - 0.2)
+      : this.add.ellipse(x, y + height * 0.32, width * 0.7, Math.max(16, height * 0.18), 0x000000, 0.18).setDepth(depth - 0.2);
+    const img = this.add.image(x, y, key).setDisplaySize(width, height).setDepth(depth);
+    if (collider) {
+      const bw = blockSize?.[0] || width * 0.48;
+      const bh = blockSize?.[1] || height * 0.32;
+      const blocker = this.addStaticBlock(x, y + height * 0.28, bw, bh, `${key}-block`);
+      img.setData("blocker", blocker);
+      shadow.setData?.("blocker", blocker);
+    }
+    return img;
+  }
+
+  addStaticBlock(x, y, width, height, name = "block") {
+    if (!this.decorationColliders) return null;
+    const blocker = this.add.rectangle(x, y, width, height, 0x000000, 0).setData("blockName", name);
+    this.physics.add.existing(blocker, true);
+    this.decorationColliders.add(blocker);
+    return blocker;
+  }
+
+  createMapBoundaryColliders(width, height) {
+    this.addStaticBlock(width / 2, 24, width, 48, "north-map-edge");
+    this.addStaticBlock(width / 2, height - 12, width, 24, "south-map-edge");
+    this.addStaticBlock(18, height / 2 - 180, 36, height - 520, "west-edge-upper");
+    this.addStaticBlock(18, height / 2 + 330, 36, height - 1040, "west-edge-lower");
+    this.addStaticBlock(width - 18, height / 2, 36, height, "east-map-edge");
+    this.addStaticBlock(1930, 310, 860, 170, "north-forest-mass");
+    this.addStaticBlock(2840, 2050, 1280, 150, "south-forest-mass");
+    this.addStaticBlock(4020, 360, 880, 160, "north-east-forest-mass");
   }
 
   drawCityReturnGate(height) {
-    this.add.rectangle(70, height / 2, 90, 190, 0x5a4530, 0.92).setStrokeStyle(3, 0xf4df9c, 0.8).setDepth(8);
-    this.add.text(72, height / 2 - 118, "AMASRA GATE\n[E] Return", { fontSize: "16px", color: "#f8f1dc", align: "center", stroke: "#000", strokeThickness: 3 }).setOrigin(0.5).setDepth(9);
+    const y = height / 2;
+    this.add.rectangle(78, y, 116, 260, 0x5a4530, 0.96).setStrokeStyle(4, 0xf4df9c, 0.9).setDepth(8);
+    this.add.rectangle(132, y - 108, 80, 36, 0x263b50, 0.95).setStrokeStyle(2, 0xd9c883, 0.9).setDepth(9);
+    this.add.rectangle(132, y + 108, 80, 36, 0x263b50, 0.95).setStrokeStyle(2, 0xd9c883, 0.9).setDepth(9);
+    this.add.rectangle(162, y, 96, 168, 0x8a6a42, 0.28).setStrokeStyle(2, 0xd9c883, 0.55).setDepth(8.5);
+    this.add.text(190, y - 158, "MARADON ROAD\n[E] Return", { fontSize: "16px", color: "#f8f1dc", align: "center", stroke: "#000", strokeThickness: 3 }).setOrigin(0.5).setDepth(10);
+    this.addStaticBlock(78, y - 106, 116, 54, "gate-upper-wall");
+    this.addStaticBlock(78, y + 106, 116, 54, "gate-lower-wall");
+    this.addStaticBlock(76, y, 34, 150, "gate-west-post");
   }
 
   createHud() {
     const { width } = this.scale;
-    this.hudText = this.add.text(20, 22, "Amasra - Slime Field Lv 1-7", { fontSize: "17px", color: "#f8f1dc", stroke: "#000", strokeThickness: 3 }).setScrollFactor(0).setDepth(100);
+    this.hudText = this.add.text(20, 22, "Amasra Outskirts - Maradon Road Lv 1-8", { fontSize: "17px", color: "#f8f1dc", stroke: "#000", strokeThickness: 3 }).setScrollFactor(0).setDepth(100);
     this.feedText = this.add.text(width - 24, 22, "", { fontSize: "12px", color: "#f8d36b", align: "right", stroke: "#000", strokeThickness: 2, wordWrap: { width: 320 } }).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+    this.petButtonBg = this.add.rectangle(92, 58, 144, 30, 0x1d2d25, 0.88)
+      .setStrokeStyle(2, 0xf0c48a, 0.85)
+      .setScrollFactor(0)
+      .setDepth(101)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => this.togglePet());
+    this.petButtonText = this.add.text(92, 58, "[P] Loot Cat: OFF", {
+      fontSize: "12px",
+      color: "#f8dfb0",
+      stroke: "#000",
+      strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
+  }
+
+  drawOverworldHotbarFrame() {
+    const { width, height } = this.scale;
+    const y = height - 58;
+    const panelW = 404;
+    this.add.rectangle(width / 2, y + 1, panelW, 82, 0x05080c, 0.48)
+      .setStrokeStyle(2, 0xb49a5f, 0.36)
+      .setScrollFactor(0)
+      .setDepth(57);
+    this.add.text(width / 2, y - 45, "Field Action Slots", {
+      fontSize: "11px",
+      color: "#d7c58f",
+      stroke: "#000",
+      strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(58);
+    this.add.text(width / 2, y + 44, "Left click attack   |   1-6 skills/potions   |   right click clears slot", {
+      fontSize: "10px",
+      color: "#b8c5c9",
+      stroke: "#000",
+      strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(58);
+  }
+
+  drawOverworldMinimapZones() {
+    const b = this.minimapInnerBounds;
+    if (!b) return;
+    const zones = [
+      { x: b.x, w: b.width * 0.24, color: 0x436d38, alpha: 0.42 },
+      { x: b.x + b.width * 0.24, w: b.width * 0.17, color: 0x6a7f3a, alpha: 0.44 },
+      { x: b.x + b.width * 0.41, w: b.width * 0.2, color: 0x2d6542, alpha: 0.44 },
+      { x: b.x + b.width * 0.61, w: b.width * 0.14, color: 0x5a4b38, alpha: 0.48 },
+      { x: b.x + b.width * 0.75, w: b.width * 0.25, color: 0x1e4d3c, alpha: 0.5 },
+    ];
+    zones.forEach((z) => {
+      this.add.rectangle(z.x + z.w / 2, b.y + b.height / 2, z.w, b.height, z.color, z.alpha)
+        .setScrollFactor(0)
+        .setDepth(16.2);
+    });
+    const roadY = b.y + b.height * 0.52;
+    this.add.line(0, 0, b.x + 8, roadY, b.x + b.width - 8, roadY + 6, 0xd0b178, 0.72)
+      .setOrigin(0, 0)
+      .setLineWidth(3)
+      .setScrollFactor(0)
+      .setDepth(16.4);
+    this.add.circle(b.x + b.width * 0.87, b.y + b.height * 0.5, 8, 0x88d273, 0.42)
+      .setStrokeStyle(1, 0xd7ffc9, 0.55)
+      .setScrollFactor(0)
+      .setDepth(16.5);
   }
 
   spawnFieldMobs() {
     this.mobs = [];
-    const zones = [
-      {
-        name: "Gate Grass",
-        count: 10,
-        x: [420, 980],
-        y: [170, 1430],
-        variants: [
-          { name: "Tiny Slime", level: 1, spriteVariant: 1, hp: 42, attack: 4, defense: 1, speed: 44, xp: 10, gold: [2, 5], scale: 0.62, tint: 0x9dff95 },
-          { name: "Green Slime", level: 2, spriteVariant: 1, hp: 58, attack: 6, defense: 2, speed: 47, xp: 16, gold: [4, 8], scale: 0.7, tint: 0x78e56a },
-        ],
-      },
-      {
-        name: "Wet Meadow",
-        count: 9,
-        x: [1040, 1740],
-        y: [150, 1450],
-        variants: [
-          { name: "Blue Slime", level: 3, spriteVariant: 2, hp: 82, attack: 8, defense: 3, speed: 50, xp: 24, gold: [6, 12], scale: 0.76, tint: 0x73c9ff, magicResist: 0.08 },
-          { name: "Big Slime", level: 4, spriteVariant: 2, hp: 118, attack: 11, defense: 5, speed: 42, xp: 35, gold: [9, 17], scale: 0.9, tint: 0x57b6e8, physicalResist: 0.05 },
-        ],
-      },
-      {
-        name: "Slime Nest",
-        count: 7,
-        x: [1800, 2460],
-        y: [170, 1430],
-        variants: [
-          { name: "Forest Slime", level: 5, spriteVariant: 3, hp: 154, attack: 14, defense: 7, speed: 45, xp: 48, gold: [12, 24], scale: 0.92, tint: 0x65d36d, physicalResist: 0.08, magicResist: 0.04 },
-          { name: "Mud Slime", level: 5, spriteVariant: 3, hp: 168, attack: 13, defense: 9, speed: 38, xp: 52, gold: [13, 26], scale: 0.95, tint: 0xa2784a, physicalResist: 0.1 },
-        ],
-      },
-    ];
+    const zones = this.getFieldSlotDefinitions();
 
     zones.forEach((zone) => {
       for (let i = 0; i < zone.count; i++) {
         const def = Phaser.Utils.Array.GetRandom(zone.variants);
         const x = Phaser.Math.Between(zone.x[0], zone.x[1]);
         const y = Phaser.Math.Between(zone.y[0], zone.y[1]);
-        this.createSlimeMob(x, y, { ...def, zone: zone.name });
+        this.createSlimeMob(x, y, { ...def, zone: zone.name, slotId: zone.id, dropTier: zone.dropTier });
       }
     });
 
-    this.createSlimeMob(2320, 800, {
+    this.createSlimeMob(3980, 1200, { ...(window.OverworldFieldData?.miniBoss || this.getFallbackMiniBossDefinition()) });
+  }
+
+  getFieldSlotDefinitions() {
+    return window.OverworldFieldData?.zones || [
+      {
+        id: "gate_grass",
+        name: "Gate Grass",
+        count: 14,
+        x: [780, 1540],
+        y: [760, 1660],
+        dropTier: 1,
+        variants: [
+          { name: "Tiny Slime", level: 1, spriteVariant: 1, hp: 42, attack: 4, defense: 1, speed: 44, xp: 10, gold: [2, 5], scale: 0.62, tint: 0x9dff95 },
+          { name: "Green Slime", level: 2, spriteVariant: 1, hp: 58, attack: 6, defense: 2, speed: 47, xp: 16, gold: [4, 8], scale: 0.7, tint: 0x78e56a },
+        ],
+      },
+      {
+        id: "goblin_camp",
+        name: "Goblin Camp",
+        count: 12,
+        x: [1380, 1980],
+        y: [620, 1180],
+        dropTier: 3,
+        variants: [
+          { name: "Goblin Scout", level: 3, spriteVariant: 2, hp: 86, attack: 9, defense: 3, speed: 54, xp: 28, gold: [7, 13], scale: 0.76, tint: 0xa8d35f, rangedResist: 0.04 },
+          { name: "Goblin Cutter", level: 4, spriteVariant: 2, hp: 116, attack: 12, defense: 5, speed: 48, xp: 38, gold: [10, 18], scale: 0.86, tint: 0x83b447, physicalResist: 0.06 },
+        ],
+      },
+      {
+        id: "wolf_woods",
+        name: "Wolf Woods",
+        count: 13,
+        x: [2140, 2820],
+        y: [470, 1150],
+        dropTier: 4,
+        variants: [
+          { name: "Young Wolf", level: 4, spriteVariant: 2, hp: 126, attack: 13, defense: 5, speed: 64, xp: 42, gold: [10, 20], scale: 0.82, tint: 0xb9c5c8, rangedResist: 0.08 },
+          { name: "Grey Wolf", level: 5, spriteVariant: 3, hp: 158, attack: 16, defense: 7, speed: 62, xp: 54, gold: [14, 26], scale: 0.9, tint: 0x9aa4a6, physicalResist: 0.08 },
+        ],
+      },
+      {
+        id: "mine_mouth",
+        name: "Mine Mouth",
+        count: 12,
+        x: [2700, 3260],
+        y: [1260, 1760],
+        dropTier: 5,
+        variants: [
+          { name: "Cave Imp", level: 5, spriteVariant: 3, hp: 168, attack: 17, defense: 8, speed: 46, xp: 60, gold: [16, 31], scale: 0.9, tint: 0xc38c5a, physicalResist: 0.1 },
+          { name: "Stone Imp", level: 6, spriteVariant: 3, hp: 212, attack: 19, defense: 11, speed: 40, xp: 74, gold: [20, 38], scale: 1, tint: 0x9d8a75, physicalResist: 0.16, magicResist: 0.04 },
+        ],
+      },
+      {
+        id: "king_slime_nest",
+        name: "King Slime Nest",
+        count: 16,
+        x: [3400, 4300],
+        y: [680, 1640],
+        dropTier: 6,
+        variants: [
+          { name: "Forest Slime", level: 6, spriteVariant: 3, hp: 190, attack: 19, defense: 9, speed: 45, xp: 72, gold: [18, 34], scale: 0.94, tint: 0x65d36d, physicalResist: 0.08, magicResist: 0.04 },
+          { name: "Mud Slime", level: 7, spriteVariant: 3, hp: 228, attack: 21, defense: 12, speed: 38, xp: 90, gold: [22, 42], scale: 1.02, tint: 0xa2784a, physicalResist: 0.12 },
+        ],
+      },
+    ];
+  }
+
+  getFallbackMiniBossDefinition() {
+    return {
       name: "King Slime",
       id: "king_slime",
-      level: 7,
+      family: "slime",
+      level: 8,
       spriteVariant: 3,
-      hp: 520,
-      attack: 24,
-      defense: 12,
+      hp: 680,
+      attack: 30,
+      defense: 16,
       speed: 36,
-      xp: 180,
-      gold: [70, 130],
+      xp: 260,
+      gold: [95, 170],
       scale: 1.45,
       tint: 0xffd35a,
-      physicalResist: 0.12,
-      magicResist: 0.08,
+      physicalResist: 0.14,
+      magicResist: 0.1,
       rank: "mini_boss",
       zone: "King Slime Nest",
+      slotId: "king_slime_nest",
+      dropTier: 7,
       isMiniBoss: true,
-    });
+    };
   }
 
   createSlimeMob(x, y, def) {
@@ -331,7 +708,7 @@ class OverworldScene extends Phaser.Scene {
     const mob = {
       ...def,
       id: def.id || String(def.name || "slime").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
-      family: "slime",
+      family: def.family || "slime",
       x,
       y,
       hp: maxHp,
@@ -363,9 +740,25 @@ class OverworldScene extends Phaser.Scene {
       dead: false,
       isMoving: false,
     };
+    mob.accessories = this.createMobFamilyAccessories(mob, depth, scale);
 
     this.mobs.push(mob);
     return mob;
+  }
+
+  createMobFamilyAccessories(mob, depth, scale) {
+    const parts = [];
+    if (mob.family === "goblin") {
+      parts.push(this.add.triangle(mob.x - 17 * scale, mob.y - 18 * scale, 0, 14, 10, 0, 20, 14, 0xb8d46a, 0.95).setDepth(depth + 1));
+      parts.push(this.add.triangle(mob.x + 17 * scale, mob.y - 18 * scale, 0, 14, 10, 0, 20, 14, 0xb8d46a, 0.95).setDepth(depth + 1));
+    } else if (mob.family === "wolf") {
+      parts.push(this.add.triangle(mob.x - 13 * scale, mob.y - 24 * scale, 0, 18, 10, 0, 20, 18, 0xd9dde0, 0.95).setDepth(depth + 1));
+      parts.push(this.add.triangle(mob.x + 13 * scale, mob.y - 24 * scale, 0, 18, 10, 0, 20, 18, 0xd9dde0, 0.95).setDepth(depth + 1));
+    } else if (mob.family === "imp") {
+      parts.push(this.add.triangle(mob.x - 14 * scale, mob.y - 24 * scale, 0, 18, 10, 0, 20, 18, 0xd96b45, 0.95).setDepth(depth + 1));
+      parts.push(this.add.triangle(mob.x + 14 * scale, mob.y - 24 * scale, 0, 18, 10, 0, 20, 18, 0xd96b45, 0.95).setDepth(depth + 1));
+    }
+    return parts;
   }
 
   update() {
@@ -374,7 +767,7 @@ class OverworldScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.close) && this.closeTopPanel()) return;
 
     // ESC should close panels only. Return to town is handled by E at the gate.
-    if (Phaser.Input.Keyboard.JustDown(this.keys.returnCity) && this.player.x < 170) {
+    if (Phaser.Input.Keyboard.JustDown(this.keys.returnCity) && this.player.x < 230) {
       this.scene.start("PrototypeScene", { returnSpawn: { x: 640, y: 90 } });
       return;
     }
@@ -383,10 +776,13 @@ class OverworldScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.skills)) this.uiManager.toggleSkillPanel();
     if (Phaser.Input.Keyboard.JustDown(this.keys.character)) this.uiManager.toggleCharacterPanel();
     if (Phaser.Input.Keyboard.JustDown(this.keys.questList)) this.uiManager.toggleQuestList();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.pet)) this.togglePet();
     for (let i = 0; i < 6; i++) {
       const key = this.keys[`slot${i + 1}`];
       if (key && Phaser.Input.Keyboard.JustDown(key)) this.useHotbarSlot(i);
     }
+    this.updatePet();
+    this.updateMercenaryCompanion();
 
     if (this.isAnyPanelOpen()) {
       this.player.body.setVelocity(0, 0);
@@ -397,9 +793,8 @@ class OverworldScene extends Phaser.Scene {
     this.handleMovement();
     this.updateMobs();
     this.updateGroundDrops();
-    this.updatePet();
+    this.updateMercenaryCompanion();
     if (Phaser.Input.Keyboard.JustDown(this.keys.attack)) this.basicAttack();
-    if (Phaser.Input.Keyboard.JustDown(this.keys.pet)) this.togglePet();
     this.refreshCityUi();
   }
 
@@ -453,15 +848,30 @@ class OverworldScene extends Phaser.Scene {
   }
 
   setClassPlayerTexture(direction) {
-    const className = String(this.registry.get("playerClass") || "warrior").toLowerCase();
-    const key = `class_${className}_${this.getDirectionName(direction || this.playerFacing)}`;
-    if (this.textures.exists(key)) {
-      this.player.setTexture(key).setDisplaySize(44, 44);
+    const key = this.getClassPlayerTextureKey(direction || this.playerFacing);
+    if (this.safeSetTexture(this.player, key)) {
+      this.player.setDisplaySize(44, 44);
       this.player.body?.setSize?.(30, 30);
       this.player.body?.setOffset?.(7, 7);
       return;
     }
     this.player.play("overworld-player-idle", true);
+  }
+
+  getClassPlayerTextureKey(direction = null) {
+    const className = String(this.registry.get("playerClass") || "warrior").toLowerCase();
+    return `class_${className}_${this.getDirectionName(direction || this.playerFacing)}`;
+  }
+
+  safeSetTexture(target, key) {
+    if (!target?.setTexture || !key || !this.textures?.exists?.(key)) return false;
+    try {
+      target.setTexture(key);
+      return true;
+    } catch (error) {
+      console.warn("[OverworldScene] Texture swap skipped:", key, error);
+      return false;
+    }
   }
 
   updateMobs() {
@@ -515,10 +925,24 @@ class OverworldScene extends Phaser.Scene {
     }
     mob.shadow?.setPosition(mob.x, mob.y + 18 * scale);
     mob.label?.setPosition(mob.x, mob.y - 42 * scale);
+    this.updateMobFamilyAccessories(mob, scale);
     mob.hpBarBg?.setPosition(mob.x - 22, mob.y - 28 * scale);
     const ratio = Math.max(0, Math.min(1, mob.hp / Math.max(1, mob.maxHp || 1)));
     mob.hpBarFill?.setPosition(mob.x - 21, mob.y - 28 * scale);
     mob.hpBarFill?.setDisplaySize(42 * ratio, 3);
+  }
+
+  updateMobFamilyAccessories(mob, scale) {
+    if (!mob.accessories?.length) return;
+    const offsets = {
+      goblin: [[-17, -18], [17, -18]],
+      wolf: [[-13, -24], [13, -24]],
+      imp: [[-14, -24], [14, -24]],
+    }[mob.family] || [];
+    mob.accessories.forEach((part, index) => {
+      const [ox, oy] = offsets[index] || [0, 0];
+      part.setPosition(mob.x + ox * scale, mob.y + oy * scale);
+    });
   }
 
   basicAttack(pointer = null) {
@@ -542,17 +966,12 @@ class OverworldScene extends Phaser.Scene {
     }
     const damage = this.calculateDamage(ap, target, profile.damageType, profile);
     this.damageMob(target, damage, profile.textColor, profile.tint, profile.damageType);
+    window.GameState?.applyDurabilityWear?.(this.registry, ["weapon"], 1, "field attack");
   }
 
   getClassCombatProfile() {
     const playerClass = String(this.registry.get("playerClass") || window.GameState?.DEFAULT_CLASS || "warrior").toLowerCase();
-    const profiles = {
-      warrior: { range: 72, hitOffset: 46, targetRadius: 52, cooldownMs: 620, damageMultiplier: 1.12, critChance: 0.06, critMultiplier: 1.55, damageType: "physical", projectile: false, tint: 0xf4df9c, effectScale: 0.95, textColor: "#ffdddd" },
-      rogue: { range: 86, hitOffset: 54, targetRadius: 58, cooldownMs: 470, damageMultiplier: 0.98, critChance: 0.18, critMultiplier: 1.75, damageType: "physical", projectile: false, tint: 0xae7cff, effectScale: 0.9, textColor: "#ffd4ff" },
-      mage: { range: 285, hitOffset: 150, targetRadius: 92, cooldownMs: 760, damageMultiplier: 0.92, critChance: 0.08, critMultiplier: 1.6, damageType: "magic", projectile: true, tint: 0x77a9ff, effectScale: 1.15, textColor: "#cfe2ff" },
-      archer: { range: 325, hitOffset: 175, targetRadius: 82, cooldownMs: 560, damageMultiplier: 1.0, critChance: 0.13, critMultiplier: 1.7, damageType: "ranged", projectile: true, tint: 0xd8b15c, effectScale: 0.9, textColor: "#ffeeaa" },
-    };
-    return profiles[playerClass] || profiles.warrior;
+    return window.GameState?.getBasicAttackProfile?.(playerClass) || window.ClassBalanceConfig?.getBasicAttackProfile?.(playerClass) || {};
   }
 
   findAttackTarget(hitX, hitY, range = 150, targetRadius = 90) {
@@ -655,6 +1074,7 @@ class OverworldScene extends Phaser.Scene {
       const base = (GS.getWeaponAp?.(this.registry) || 18) * (skill.damageScale || 1.25) * powerScale;
       const damage = this.calculateDamage(base, target, skillType, profile);
       this.damageMob(target, damage, "#ffeeaa", skill.tint || profile.tint, skillType);
+      GS.applyDurabilityWear?.(this.registry, ["weapon"], 1, "field skill");
     } else {
       this.showFloatingText(hitX, hitY - 18, "NO TARGET", "#dfe8ea");
     }
@@ -712,7 +1132,7 @@ class OverworldScene extends Phaser.Scene {
     this.refreshCityUi();
     if (this.currentHp <= 0) {
       this.currentHp = window.GameState?.getMaxHp?.(this.registry) || 100;
-      this.player.setPosition(180, this.physics.world.bounds.height / 2);
+      this.player.setPosition(260, this.physics.world.bounds.height / 2);
       this.showCityBanner("Respawn", "Returned to Amasra gate");
     }
   }
@@ -828,6 +1248,8 @@ class OverworldScene extends Phaser.Scene {
 
     const gold = Phaser.Math.Between(mob.gold?.[0] || 1, mob.gold?.[1] || 3);
     const xp = window.GameState?.grantXp?.(this.registry, mob.xp || 10, "field") || null;
+    window.GameState?.updateQuestProgress?.(this.registry, { type: "kill", target: mob.enemyId || mob.family || mob.name || "slime", amount: 1 });
+    window.GameState?.pushActivityEvent?.(this.registry, `${mob.name} killed | +${xp?.amount || mob.xp || 0} XP`, "combat");
     const feedLines = [`${mob.name} killed`, `+${xp?.amount || mob.xp || 0} XP`, `${gold} Gold dropped`];
     if (mob.isMiniBoss) feedLines.unshift("Mini Boss defeated!");
     this.feedText.setText(feedLines.join("\n"));
@@ -837,6 +1259,7 @@ class OverworldScene extends Phaser.Scene {
       mob.sprite?.destroy();
       mob.fallbackBody?.destroy();
       mob.shadow?.destroy();
+      mob.accessories?.forEach((part) => part.destroy?.());
       mob.label?.destroy();
       mob.hpBarBg?.destroy();
       mob.hpBarFill?.destroy();
@@ -848,23 +1271,41 @@ class OverworldScene extends Phaser.Scene {
   }
 
   rollFieldLoot(mob) {
-    const chance = mob.isMiniBoss ? 0.75 : 0.12;
-    if (Math.random() > chance) return;
+    if (mob.isMiniBoss) {
+      const material = { id: "kingSlimeGel", name: "King Slime Gel", type: "material", rarity: "rare", count: 1, color: 0xffd35a };
+      this.spawnGroundDrop(mob.x + Phaser.Math.Between(-24, 24), mob.y + Phaser.Math.Between(-16, 22), { type: "item", item: material });
+    }
 
-    const reward = mob.isMiniBoss
-      ? { id: "kingSlimeGel", name: "King Slime Gel", type: "material", rarity: "rare", count: 1, color: 0xffd35a }
-      : { id: "slimeGel", name: "Slime Gel", type: "material", rarity: "common", count: 1, color: 0x78e56a };
+    const balance = window.GameState?.BALANCE || {};
+    const gearChance = mob.isMiniBoss
+      ? (balance.fieldMiniBossGearChance || 0.82)
+      : Math.min(balance.fieldGearDropCap || 0.34, (balance.fieldGearDropBase || 0.06) + (mob.dropTier || 1) * (balance.fieldGearDropPerTier || 0.035));
+    if (Math.random() > gearChance) return;
+    const gear = this.createFieldGearDrop(mob);
+    if (gear) {
+      this.spawnGroundDrop(mob.x + Phaser.Math.Between(-28, 28), mob.y + Phaser.Math.Between(-22, 26), { type: "item", item: gear });
+    }
+  }
 
-    this.spawnGroundDrop(mob.x + Phaser.Math.Between(-24, 24), mob.y + Phaser.Math.Between(-16, 22), { type: "item", item: reward });
+  createFieldGearDrop(mob) {
+    const GS = window.GameState;
+    if (!GS?.pickClassEquipmentByTier || !GS?.createInventoryItemFromTemplate) return null;
+    const slotRoll = Phaser.Math.Between(1, 100);
+    const slot = slotRoll <= 42 ? "weapon" : slotRoll <= 60 ? "body" : slotRoll <= 74 ? "head" : slotRoll <= 87 ? "hands" : "legs";
+    const levelBonus = Math.max(0, Math.floor(((this.registry.get("playerLevel") || 1) - 1) / 4));
+    const tier = Math.max(1, Math.min(10, (mob.dropTier || 1) + (mob.isMiniBoss ? 2 : 0) + levelBonus));
+    const template = GS.pickClassEquipmentByTier(this.registry, slot, tier);
+    return GS.createInventoryItemFromTemplate(template, template?.rarity || null);
   }
 
   spawnGroundDrop(x, y, dropData) {
     const isGold = dropData.type === "gold";
     const tint = isGold ? 0xffd35a : (dropData.item?.color || 0xb5ffad);
     const body = this.add.circle(x, y, isGold ? 8 : 10, tint, 0.95).setStrokeStyle(2, 0x1b1510, 0.75).setDepth(14).setInteractive({ useHandCursor: true });
+    const labelColor = isGold ? "#ffdf73" : this.getDropLabelColor(dropData.item);
     const label = this.add.text(x, y - 24, isGold ? `${dropData.amount} Gold` : dropData.item.name, {
-      fontSize: "10px",
-      color: isGold ? "#ffdf73" : "#b5ffad",
+      fontSize: dropData.item?.slot ? "11px" : "10px",
+      color: labelColor,
       stroke: "#000",
       strokeThickness: 3,
     }).setOrigin(0.5).setDepth(15);
@@ -872,6 +1313,17 @@ class OverworldScene extends Phaser.Scene {
     body.on("pointerdown", () => this.collectGroundDrop(drop));
     this.fieldDrops.push(drop);
     this.tweens?.add?.({ targets: [body, label], y: "-=5", yoyo: true, repeat: -1, duration: 720 });
+  }
+
+  getDropLabelColor(item) {
+    const colors = {
+      common: "#f1f1f1",
+      uncommon: "#f1f1f1",
+      rare: "#65b8ff",
+      epic: "#ffd36b",
+      legendary: "#ff9a3d",
+    };
+    return colors[item?.rarity] || "#b5ffad";
   }
 
   updateGroundDrops() {
@@ -886,15 +1338,28 @@ class OverworldScene extends Phaser.Scene {
   collectGroundDrop(drop) {
     if (!drop || drop.collected) return false;
     if (drop.type === "gold") {
-      this.registry.set("gold", (this.registry.get("gold") || 0) + (drop.amount || 0));
-      this.showCityBanner("Loot", `+${drop.amount || 0} Gold`);
+      const cut = window.GameState?.applyMercenaryLootCut?.(this.registry, drop.amount || 0, "Gold") || { playerAmount: drop.amount || 0, mercenaryAmount: 0 };
+      this.registry.set("gold", (this.registry.get("gold") || 0) + (cut.playerAmount || 0));
+      this.showCityBanner("Loot", `+${cut.playerAmount || 0} Gold${cut.mercenaryAmount ? ` | Merc -${cut.mercenaryAmount}` : ""}`);
     } else if (drop.type === "item") {
+      if (window.GameState?.shouldMercenaryClaimDrop?.(this.registry)) {
+        window.GameState?.pushActivityEvent?.(this.registry, `Mercenary claimed: ${drop.item?.name || "item"}`, "social");
+        this.showCityBanner("Mercenary Loot", `${drop.item?.name || "Item"} claimed`);
+        drop.collected = true;
+        drop.body?.destroy();
+        drop.label?.destroy();
+        this.fieldDrops = this.fieldDrops.filter((entry) => entry !== drop);
+        window.GameState?.saveProgress?.(this.registry);
+        this.refreshCityUi();
+        return true;
+      }
       const index = window.GameState?.addToInventory?.(this.registry, drop.item);
       if (index === undefined || index < 0) {
         this.showFloatingText(drop.x, drop.y - 18, "Bag Full", "#ff7777");
         return false;
       }
-      this.showCityBanner("Loot", drop.item?.name || "Item");
+      const prefix = drop.item?.slot ? "Gear" : "Loot";
+      this.showCityBanner(prefix, drop.item?.name || "Item");
     }
     drop.collected = true;
     drop.body?.destroy();
@@ -905,23 +1370,113 @@ class OverworldScene extends Phaser.Scene {
     return true;
   }
 
+  createMercenaryCompanion() {
+    const state = window.GameState?.getMercenaryState?.(this.registry);
+    if (!state || !this.player) return;
+    this.destroyMercenaryCompanion();
+    const dir = this.getDirectionName?.(this.playerFacing) || "south";
+    const key = `class_${state.className}_${dir}`;
+    const tint = window.GameState?.MERCENARY_CONFIG?.classes?.[state.className]?.tint || 0xf4df9c;
+    const body = this.textures.exists(key)
+      ? this.add.image(this.player.x - 52, this.player.y + 34, key).setDisplaySize(40, 40).setDepth(34)
+      : this.add.circle(this.player.x - 52, this.player.y + 34, 15, tint, 0.95).setDepth(34);
+    const label = this.add.text(body.x, body.y - 28, state.label || "Mercenary", {
+      fontSize: "10px",
+      color: "#f4df9c",
+      stroke: "#000",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(35);
+    this.mercenary = { ...state, body, label, x: body.x, y: body.y, nextAttackAt: 0 };
+  }
+
+  destroyMercenaryCompanion() {
+    this.mercenary?.body?.destroy?.();
+    this.mercenary?.label?.destroy?.();
+    this.mercenary = null;
+  }
+
+  updateMercenaryCompanion() {
+    const state = window.GameState?.getMercenaryState?.(this.registry);
+    if (!state) {
+      if (this.mercenary) this.destroyMercenaryCompanion();
+      return;
+    }
+    if (!this.mercenary) this.createMercenaryCompanion();
+    if (!this.mercenary?.body || !this.player) return;
+    const delta = Math.min(0.05, (this.game?.loop?.delta || 16) / 1000);
+    const target = this.findMercenaryTarget(state);
+    const anchor = target || this.player;
+    const followDist = target ? 130 : 68;
+    const dist = Phaser.Math.Distance.Between(this.mercenary.x, this.mercenary.y, anchor.x, anchor.y);
+    if (dist > followDist) {
+      const dir = new Phaser.Math.Vector2(anchor.x - this.mercenary.x, anchor.y - this.mercenary.y).normalize();
+      const speed = target ? 165 : 205;
+      this.mercenary.x += dir.x * speed * delta;
+      this.mercenary.y += dir.y * speed * delta;
+      const tex = `class_${state.className}_${this.getDirectionName(dir)}`;
+      this.safeSetTexture(this.mercenary.body, tex);
+    }
+    this.mercenary.body.setPosition(this.mercenary.x, this.mercenary.y);
+    this.mercenary.label?.setPosition(this.mercenary.x, this.mercenary.y - 28);
+    if (target) this.tryMercenaryAttack(target, state);
+  }
+
+  findMercenaryTarget(state) {
+    const profile = window.GameState?.getBasicAttackProfile?.(state.className) || {};
+    const aggroRange = Math.max(260, (profile.range || 140) + 90);
+    return (this.mobs || [])
+      .filter((mob) => mob && !mob.dead && mob.hp > 0 && Phaser.Math.Distance.Between(this.player.x, this.player.y, mob.x, mob.y) <= aggroRange)
+      .sort((a, b) => Phaser.Math.Distance.Between(this.mercenary?.x || this.player.x, this.mercenary?.y || this.player.y, a.x, a.y) - Phaser.Math.Distance.Between(this.mercenary?.x || this.player.x, this.mercenary?.y || this.player.y, b.x, b.y))[0] || null;
+  }
+
+  tryMercenaryAttack(target, state) {
+    const profile = window.GameState?.getBasicAttackProfile?.(state.className) || {};
+    const range = profile.range || 140;
+    const dist = Phaser.Math.Distance.Between(this.mercenary.x, this.mercenary.y, target.x, target.y);
+    if (dist > range) return;
+    const cooldown = Math.floor((profile.cooldownMs || 850) * (state.attackSlow || 1.45));
+    if (this.time.now < (this.mercenary.nextAttackAt || 0)) return;
+    this.mercenary.nextAttackAt = this.time.now + cooldown;
+    const dir = new Phaser.Math.Vector2(target.x - this.mercenary.x, target.y - this.mercenary.y).normalize();
+    const tex = `class_${state.className}_${this.getDirectionName(dir)}`;
+    this.safeSetTexture(this.mercenary.body, tex);
+    const tint = window.GameState?.MERCENARY_CONFIG?.classes?.[state.className]?.tint || profile.tint || 0xf4df9c;
+    if (profile.projectile) this.spawnProjectile(this.mercenary.x, this.mercenary.y - 12, target.x, target.y, tint);
+    else this.spawnSwingEffect(this.mercenary.x + dir.x * 34, this.mercenary.y + dir.y * 34, tint, 0.85);
+    const base = (window.GameState?.getWeaponAp?.(this.registry) || 18) * (state.damageScale || 0.7);
+    const damage = this.calculateDamage(base, target, profile.damageType || "physical", profile);
+    this.damageMob(target, damage, "#c6f0ff", tint, profile.damageType || "physical");
+  }
+
   togglePet() {
+    const now = this.time?.now || 0;
+    if (now - (this.lastPetToggleAt || 0) < 140) return;
+    this.lastPetToggleAt = now;
     if (this.petSummoned) {
       this.petSummoned = false;
       this.pet?.body?.destroy?.();
       this.pet?.label?.destroy?.();
       this.pet = null;
+      this.updatePetHud();
       this.showCityBanner("Pet", "Loot Cat dismissed");
       return;
     }
     this.petSummoned = true;
     const key = this.textures.exists("pet_cat_south") ? "pet_cat_south" : "__MISSING";
-    const body = this.add.image(this.player.x - 42, this.player.y + 28, key).setDisplaySize(30, 30).setDepth(19);
+    const body = this.textures.exists(key)
+      ? this.add.image(this.player.x - 42, this.player.y + 28, key).setDisplaySize(34, 34).setDepth(35)
+      : this.add.circle(this.player.x - 42, this.player.y + 28, 15, 0xf0c48a, 0.98).setStrokeStyle(3, 0x4b2f1b, 0.9).setDepth(35);
     const label = this.add.text(body.x, body.y - 24, "Loot Cat", {
       fontSize: "10px", color: "#f8dfb0", stroke: "#000", strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(20);
+    }).setOrigin(0.5).setDepth(36);
     this.pet = { body, label, x: body.x, y: body.y };
+    this.updatePetHud();
     this.showCityBanner("Pet", "Loot Cat summoned");
+  }
+
+  updatePetHud() {
+    if (this.petButtonText) this.petButtonText.setText(`[P] Loot Cat: ${this.petSummoned ? "ON" : "OFF"}`);
+    if (this.petButtonBg) this.petButtonBg.setFillStyle(this.petSummoned ? 0x3a2f18 : 0x1d2d25, 0.9);
   }
 
   updatePet() {
@@ -938,7 +1493,7 @@ class OverworldScene extends Phaser.Scene {
       this.pet.x += dir.x * (targetDrop ? 190 : 135) * delta;
       this.pet.y += dir.y * (targetDrop ? 190 : 135) * delta;
       const key = `pet_cat_${this.getDirectionName(dir)}`;
-      if (this.textures.exists(key)) this.pet.body.setTexture(key);
+      this.safeSetTexture(this.pet.body, key);
     }
     this.pet.body.setPosition(this.pet.x, this.pet.y);
     this.pet.label.setPosition(this.pet.x, this.pet.y - 24);

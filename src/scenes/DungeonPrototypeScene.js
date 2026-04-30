@@ -25,6 +25,10 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.questListOpen = false;
     this.isTransitioningOut = false;
     this.lootDrops = [];
+    this.petSummoned = false;
+    this.pet = null;
+    this.mercenary = null;
+    this.mercenary = null;
     this.dungeonEventNodes = [];
     this.runRewards = { gold: 0, materials: [], cycleBonus: 0, preparationBonus: 0, statPoints: 0 };
     this.chatLines = [];
@@ -67,6 +71,8 @@ class DungeonPrototypeScene extends Phaser.Scene {
     // Spritesheets
     this.load.spritesheet("player_idle_sheet", "assets/sprites/units/player_idle.png", { frameWidth: 192, frameHeight: 192 });
     this.load.spritesheet("player_run_sheet", "assets/sprites/units/player_run.png", { frameWidth: 192, frameHeight: 192 });
+    this.loadClassAndCatImages();
+    this.loadPetImages();
     
     // Enemy Sprites
     this.load.spritesheet("enemy_kekon_idle", "assets/sprites/enemies/kekon_idle.png", { frameWidth: 192, frameHeight: 192 });
@@ -111,6 +117,12 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.__bossEquipmentRewardGranted = null;
     this.__bossMaterialsGranted = null;
     this.enemyDefeatCount = 0;
+    this.dungeonCleared = false;
+    this.rewardPanelOpen = false;
+    this.pendingTownReturn = null;
+    this.lootDrops = [];
+    this.petSummoned = false;
+    this.pet = null;
 
     const worldWidth = this.dungeonTemplate?.width || 4000;
     const worldHeight = this.dungeonTemplate?.height || 1200;
@@ -145,6 +157,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
     const spawnX = data?.spawn?.x ?? this.dungeonLayoutData.entrySpawn.x;
     const spawnY = data?.spawn?.y ?? this.dungeonLayoutData.entrySpawn.y;
     this.createPlayer(spawnX, spawnY);
+    this.createMercenaryCompanion();
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
     // Enemies
@@ -214,6 +227,8 @@ class DungeonPrototypeScene extends Phaser.Scene {
 
       this.handleMovement();
       this.updateEnemyAi();
+      this.updatePet();
+      this.updateMercenaryCompanion();
       this.updatePhaseProgression();
       this.updateInteractionPrompt();
       this.refreshHudPanel();
@@ -320,7 +335,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
       up: 'W', down: 'S', left: 'A', right: 'D',
       w: 'W', a: 'A', s: 'S', d: 'D',
       interact: 'E', close: 'ESC', confirm: 'ENTER',
-      inventory: 'I', skills: 'K', questList: 'Q', classSkill: 'F', character: 'C'
+      inventory: 'I', skills: 'K', questList: 'Q', classSkill: 'F', character: 'C', pet: 'P'
     });
 
     this.input.on("pointerdown", (pointer) => {
@@ -353,6 +368,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys.skills)) this.togglePanel('skills');
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys.questList)) this.togglePanel('quests');
     if (Phaser.Input.Keyboard.JustDown(this.actionKeys.character)) this.togglePanel('character');
+    if (Phaser.Input.Keyboard.JustDown(this.actionKeys.pet)) this.togglePet();
     
     if (
       this.activeInteractable
@@ -390,6 +406,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
     if (target) {
       if (profile.projectile) this.spawnRangedTrace(this.player.x, this.player.y - 12, target.x, target.y, profile.tint);
       this.damageEnemy(target, GameState.getWeaponAp(this.registry) * profile.damageMultiplier, profile.damageType);
+      GameState.applyDurabilityWear?.(this.registry, ["weapon"], 1, "dungeon attack");
     } else {
       this.showDamageText(hitX, hitY - 20, "MISS", "#dddddd");
     }
@@ -397,13 +414,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
 
   getClassCombatProfile() {
     const playerClass = String(this.registry.get("playerClass") || GameState.DEFAULT_CLASS || "warrior").toLowerCase();
-    const profiles = {
-      warrior: { range: 70, hitOffset: 46, targetRadius: 52, cooldownMs: 620, damageMultiplier: 1.12, damageType: "physical", projectile: false, tint: 0xf4df9c, effectScale: 0.85 },
-      rogue: { range: 86, hitOffset: 54, targetRadius: 58, cooldownMs: 470, damageMultiplier: 0.98, damageType: "physical", projectile: false, tint: 0xae7cff, effectScale: 0.8 },
-      mage: { range: 275, hitOffset: 145, targetRadius: 94, cooldownMs: 760, damageMultiplier: 0.92, damageType: "magic", projectile: true, tint: 0x77a9ff, effectScale: 1.05 },
-      archer: { range: 320, hitOffset: 165, targetRadius: 84, cooldownMs: 560, damageMultiplier: 1.0, damageType: "ranged", projectile: true, tint: 0xd8b15c, effectScale: 0.9 },
-    };
-    return profiles[playerClass] || profiles.warrior;
+    return GameState.getBasicAttackProfile?.(playerClass) || window.ClassBalanceConfig?.getBasicAttackProfile?.(playerClass) || {};
   }
 
   spawnRangedTrace(fromX, fromY, toX, toY, tint = 0xf4df9c) {
@@ -458,6 +469,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.enemyPlaceholders.forEach(enemy => {
       if (enemy.hp > 0 && Phaser.Math.Distance.Between(hitX, hitY, enemy.x, enemy.y) < 120) {
         this.damageEnemy(enemy, GameState.getWeaponAp(this.registry) * skill.damageScale);
+        GameState.applyDurabilityWear?.(this.registry, ["weapon"], 1, "dungeon skill");
       }
     });
   }
@@ -492,8 +504,8 @@ class DungeonPrototypeScene extends Phaser.Scene {
     this.spawnAnimatedEffect("fx_explosion_01", "fx-explosion-01", enemy.x, enemy.y, { scale: 0.6 });
     enemy.visuals.forEach(v => v.destroy());
     
-    // Rewards
-    this.runRewards.gold += 15;
+    // Dungeon gold is now a real world pickup so the loot cat can collect it.
+    this.spawnDungeonDrop?.(enemy.x + Phaser.Math.Between(-14, 14), enemy.y + Phaser.Math.Between(-10, 14), { type: "gold", amount: 15 });
     this.updatePhaseProgression();
   }
 
@@ -557,17 +569,77 @@ class DungeonPrototypeScene extends Phaser.Scene {
 
   // --- Factories ---
   createPlayer(x, y) {
-    this.player = this.physics.add.sprite(x, y, "player_idle_sheet").setScale(0.35).setDepth(10);
-    this.player.body.setSize(40, 40).setOffset(76, 120);
-    this.player.play("player-idle");
+    const classTexture = this.getClassPlayerTextureKey(new Phaser.Math.Vector2(0, 1));
+    this.player = this.physics.add.sprite(x, y, classTexture || "player_idle_sheet").setScale(classTexture ? 1 : 0.35).setDepth(10);
+    if (classTexture) {
+      this.player.setDisplaySize(46, 46);
+      this.player.body.setSize(30, 30).setOffset(8, 8);
+    } else {
+      this.player.body.setSize(40, 40).setOffset(76, 120);
+      this.player.play("player-idle");
+    }
     this.physics.add.collider(this.player, this.obstacles);
   }
 
   setPlayerAnimation(moving = false, directionX = 0) {
     if (!this.player) return;
+    const classTexture = this.getClassPlayerTextureKey(this.playerFacing);
+    if (this.safeSetTexture(this.player, classTexture)) {
+      this.player.anims?.stop?.();
+      this.player.setDisplaySize(46, 46);
+      this.player.setFlipX(false);
+      this.player.body?.setSize?.(30, 30);
+      this.player.body?.setOffset?.(8, 8);
+      this.player.setAngle(moving ? Math.sin(this.time.now / 90) * 1.8 : 0);
+      return;
+    }
     if (directionX !== 0) this.player.setFlipX(directionX < 0);
     const animKey = moving ? "player-run" : "player-idle";
     if (this.anims.exists(animKey)) this.player.play(animKey, true);
+  }
+
+  loadClassAndCatImages() {
+    const base = "class%20and%20cat/";
+    const dirs = ["south", "south-east", "east", "north-east", "north", "north-west", "west", "south-west"];
+    const folders = {
+      warrior: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_warri",
+      mage: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_mage",
+      rogue: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_rogue",
+      archer: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_arche",
+    };
+    Object.entries(folders).forEach(([className, folder]) => {
+      dirs.forEach((dir) => this.load.image(`dungeon_class_${className}_${dir}`, `${base}${folder}/rotations/${dir}.png`));
+    });
+  }
+
+  getDirectionName(vec) {
+    const angle = Phaser.Math.RadToDeg(Math.atan2(vec?.y || 0, vec?.x || 0));
+    if (angle >= -22.5 && angle < 22.5) return "east";
+    if (angle >= 22.5 && angle < 67.5) return "south-east";
+    if (angle >= 67.5 && angle < 112.5) return "south";
+    if (angle >= 112.5 && angle < 157.5) return "south-west";
+    if (angle >= 157.5 || angle < -157.5) return "west";
+    if (angle >= -157.5 && angle < -112.5) return "north-west";
+    if (angle >= -112.5 && angle < -67.5) return "north";
+    return "north-east";
+  }
+
+  getClassPlayerTextureKey(direction = null) {
+    const className = String(this.registry.get("playerClass") || GameState.DEFAULT_CLASS || "warrior").toLowerCase();
+    const dir = this.getDirectionName(direction || this.playerFacing || new Phaser.Math.Vector2(0, 1));
+    const key = `dungeon_class_${className}_${dir}`;
+    return this.textures.exists(key) ? key : null;
+  }
+
+  safeSetTexture(target, key) {
+    if (!target?.setTexture || !key || !this.textures?.exists?.(key)) return false;
+    try {
+      target.setTexture(key);
+      return true;
+    } catch (error) {
+      console.warn("[DungeonPrototypeScene] Texture swap skipped:", key, error);
+      return false;
+    }
   }
 
   createEnemyPlaceholders() {
@@ -772,7 +844,9 @@ class DungeonPrototypeScene extends Phaser.Scene {
 
   spawnAnimatedEffect(key, anim, x, y, { scale = 1 } = {}) {
     const s = this.add.sprite(x, y, key).setScale(scale).setDepth(50);
-    s.play(anim).once("animationcomplete", () => s.destroy());
+    s.play(anim);
+    s.once("animationcomplete", () => s.destroy());
+    this.time.delayedCall(360, () => s?.destroy?.());
   }
 
   showDamageText(x, y, text, color) {
@@ -808,6 +882,7 @@ class DungeonPrototypeScene extends Phaser.Scene {
       promptRadius: 100,
       active: false,
       onConfirm: () => {
+        if (!this.canOpenVictoryChest?.()) return;
         this.isTransitioningOut = true;
         this.scene.start("PrototypeScene", { dungeonReturn: { cleared: true, goldGained: this.runRewards.gold } });
       }
@@ -894,6 +969,185 @@ class DungeonPrototypeScene extends Phaser.Scene {
         if (exit) exit.active = true;
       }
     }
+  }
+
+  loadPetImages() {
+    const base = "class%20and%20cat/kedi%20pet/rotations/";
+    ["south", "south-east", "east", "north-east", "north", "north-west", "west", "south-west"]
+      .forEach((dir) => this.load.image(`dungeon_pet_cat_${dir}`, `${base}${dir}.png`));
+  }
+
+  canOpenVictoryChest() {
+    if (!this.dungeonCleared) return false;
+    const chest = (this.interactables || []).find((entry) => (entry.name === "Open Victory Chest" || entry.name === "Claim Victory") && entry.active !== false);
+    if (!chest || !this.player) return false;
+    return Phaser.Math.Distance.Between(this.player.x, this.player.y, chest.x, chest.y) <= (chest.promptRadius || 120);
+  }
+
+  togglePet() {
+    if (this.petSummoned) {
+      this.petSummoned = false;
+      this.pet?.body?.destroy?.();
+      this.pet?.label?.destroy?.();
+      this.pet = null;
+      this.showDamageText(this.player.x, this.player.y - 70, "PET OFF", "#f8dfb0");
+      return;
+    }
+    this.petSummoned = true;
+    const key = this.textures.exists("dungeon_pet_cat_south") ? "dungeon_pet_cat_south" : "__MISSING";
+    const body = this.textures.exists(key)
+      ? this.add.image(this.player.x - 42, this.player.y + 30, key).setDisplaySize(34, 34).setDepth(45)
+      : this.add.circle(this.player.x - 42, this.player.y + 30, 15, 0xf0c48a, 0.98).setStrokeStyle(3, 0x4b2f1b, 0.9).setDepth(45);
+    const label = this.add.text(body.x, body.y - 24, "Loot Cat", {
+      fontSize: "10px", color: "#f8dfb0", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(46);
+    this.pet = { body, label, x: body.x, y: body.y };
+    this.showDamageText(this.player.x, this.player.y - 70, "PET ON", "#f8dfb0");
+  }
+
+  updatePet() {
+    if (!this.petSummoned || !this.pet?.body || !this.player) return;
+    const drops = (this.lootDrops || []).filter((drop) => drop && !drop.collected);
+    const targetDrop = drops
+      .sort((a, b) => Phaser.Math.Distance.Between(this.pet.x, this.pet.y, a.x, a.y) - Phaser.Math.Distance.Between(this.pet.x, this.pet.y, b.x, b.y))[0];
+    const targetX = targetDrop?.x ?? (this.player.x - this.playerFacing.x * 46);
+    const targetY = targetDrop?.y ?? (this.player.y - this.playerFacing.y * 46 + 18);
+    const delta = Math.min(0.05, (this.game?.loop?.delta || 16) / 1000);
+    const dir = new Phaser.Math.Vector2(targetX - this.pet.x, targetY - this.pet.y);
+    if (dir.lengthSq() > 9) {
+      dir.normalize();
+      this.pet.x += dir.x * (targetDrop ? 210 : 135) * delta;
+      this.pet.y += dir.y * (targetDrop ? 210 : 135) * delta;
+      const key = `dungeon_pet_cat_${this.getDirectionName?.(dir) || "south"}`;
+      this.safeSetTexture(this.pet.body, key);
+    }
+    this.pet.body.setPosition(this.pet.x, this.pet.y);
+    this.pet.label.setPosition(this.pet.x, this.pet.y - 24);
+    if (targetDrop && Phaser.Math.Distance.Between(this.pet.x, this.pet.y, targetDrop.x, targetDrop.y) <= 30) {
+      this.collectDungeonDrop?.(targetDrop);
+    }
+  }
+
+  spawnDungeonDrop(x, y, dropData) {
+    const isGold = dropData.type === "gold";
+    const tint = isGold ? 0xffd35a : (dropData.item?.color || 0xb5ffad);
+    const body = this.add.circle(x, y, isGold ? 8 : 10, tint, 0.95).setStrokeStyle(2, 0x1b1510, 0.75).setDepth(32).setInteractive({ useHandCursor: true });
+    const label = this.add.text(x, y - 23, isGold ? `${dropData.amount} Gold` : dropData.item?.name || "Loot", {
+      fontSize: "10px", color: isGold ? "#ffdf73" : "#b5ffad", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(33);
+    const drop = { ...dropData, x, y, body, label, collected: false };
+    body.on("pointerdown", () => this.collectDungeonDrop(drop));
+    this.lootDrops.push(drop);
+    this.tweens?.add?.({ targets: [body, label], y: "-=5", yoyo: true, repeat: -1, duration: 720 });
+    return drop;
+  }
+
+  collectDungeonDrop(drop) {
+    if (!drop || drop.collected) return false;
+    if (drop.type === "gold") {
+      const cut = GameState.applyMercenaryLootCut?.(this.registry, drop.amount || 0, "Gold") || { playerAmount: drop.amount || 0, mercenaryAmount: 0 };
+      this.runRewards.gold = (this.runRewards.gold || 0) + (cut.playerAmount || 0);
+      this.showDamageText(drop.x, drop.y - 20, `+${cut.playerAmount || 0} Gold${cut.mercenaryAmount ? ` | M-${cut.mercenaryAmount}` : ""}`, "#ffdf73");
+    } else if (drop.type === "item" && drop.item) {
+      if (GameState.shouldMercenaryClaimDrop?.(this.registry)) {
+        GameState.pushActivityEvent?.(this.registry, `Mercenary claimed: ${drop.item?.name || "item"}`, "social");
+        this.showDamageText(drop.x, drop.y - 20, "MERC CLAIM", "#f4df9c");
+        drop.collected = true;
+        drop.body?.destroy?.();
+        drop.label?.destroy?.();
+        this.lootDrops = (this.lootDrops || []).filter((entry) => entry !== drop);
+        GameState.saveProgress?.(this.registry);
+        return true;
+      }
+      const index = GameState.addToInventory?.(this.registry, drop.item);
+      if (index === undefined || index < 0) {
+        this.showDamageText(drop.x, drop.y - 20, "BAG FULL", "#ff7777");
+        return false;
+      }
+      this.showDamageText(drop.x, drop.y - 20, drop.item.name || "Loot", "#b5ffad");
+    }
+    drop.collected = true;
+    drop.body?.destroy?.();
+    drop.label?.destroy?.();
+    this.lootDrops = (this.lootDrops || []).filter((entry) => entry !== drop);
+    GameState.saveProgress?.(this.registry);
+    return true;
+  }
+
+  createMercenaryCompanion() {
+    const state = GameState.getMercenaryState?.(this.registry);
+    if (!state || !this.player) return;
+    this.destroyMercenaryCompanion();
+    const dir = this.getDirectionName?.(this.playerFacing) || "south";
+    const key = `dungeon_class_${state.className}_${dir}`;
+    const tint = GameState.MERCENARY_CONFIG?.classes?.[state.className]?.tint || 0xf4df9c;
+    const body = this.textures.exists(key)
+      ? this.add.image(this.player.x - 46, this.player.y + 34, key).setDisplaySize(40, 40).setDepth(82)
+      : this.add.circle(this.player.x - 46, this.player.y + 34, 15, tint, 0.95).setDepth(82);
+    const label = this.add.text(body.x, body.y - 28, state.label || "Mercenary", {
+      fontSize: "10px",
+      color: "#f4df9c",
+      stroke: "#000",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(83);
+    this.mercenary = { ...state, body, label, x: body.x, y: body.y, nextAttackAt: 0 };
+  }
+
+  destroyMercenaryCompanion() {
+    this.mercenary?.body?.destroy?.();
+    this.mercenary?.label?.destroy?.();
+    this.mercenary = null;
+  }
+
+  updateMercenaryCompanion() {
+    const state = GameState.getMercenaryState?.(this.registry);
+    if (!state) {
+      if (this.mercenary) this.destroyMercenaryCompanion();
+      return;
+    }
+    if (!this.mercenary) this.createMercenaryCompanion();
+    if (!this.mercenary?.body || !this.player) return;
+    const delta = Math.min(0.05, (this.game?.loop?.delta || 16) / 1000);
+    const target = this.findMercenaryDungeonTarget(state);
+    const anchor = target || this.player;
+    const followDist = target ? 125 : 66;
+    const dist = Phaser.Math.Distance.Between(this.mercenary.x, this.mercenary.y, anchor.x, anchor.y);
+    if (dist > followDist) {
+      const dir = new Phaser.Math.Vector2(anchor.x - this.mercenary.x, anchor.y - this.mercenary.y).normalize();
+      const speed = target ? 165 : 205;
+      this.mercenary.x += dir.x * speed * delta;
+      this.mercenary.y += dir.y * speed * delta;
+      const tex = `dungeon_class_${state.className}_${this.getDirectionName?.(dir) || "south"}`;
+      this.safeSetTexture(this.mercenary.body, tex);
+    }
+    this.mercenary.body.setPosition(this.mercenary.x, this.mercenary.y);
+    this.mercenary.label?.setPosition(this.mercenary.x, this.mercenary.y - 28);
+    if (target) this.tryMercenaryDungeonAttack(target, state);
+  }
+
+  findMercenaryDungeonTarget(state) {
+    const profile = GameState.getBasicAttackProfile?.(state.className) || {};
+    const aggroRange = Math.max(260, (profile.range || 140) + 90);
+    return (this.enemyPlaceholders || [])
+      .filter((enemy) => enemy && enemy.hp > 0 && Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) <= aggroRange)
+      .sort((a, b) => Phaser.Math.Distance.Between(this.mercenary?.x || this.player.x, this.mercenary?.y || this.player.y, a.x, a.y) - Phaser.Math.Distance.Between(this.mercenary?.x || this.player.x, this.mercenary?.y || this.player.y, b.x, b.y))[0] || null;
+  }
+
+  tryMercenaryDungeonAttack(target, state) {
+    const profile = GameState.getBasicAttackProfile?.(state.className) || {};
+    const range = profile.range || 140;
+    if (Phaser.Math.Distance.Between(this.mercenary.x, this.mercenary.y, target.x, target.y) > range) return;
+    const cooldown = Math.floor((profile.cooldownMs || 850) * (state.attackSlow || 1.45));
+    if (this.time.now < (this.mercenary.nextAttackAt || 0)) return;
+    this.mercenary.nextAttackAt = this.time.now + cooldown;
+    const dir = new Phaser.Math.Vector2(target.x - this.mercenary.x, target.y - this.mercenary.y).normalize();
+    const tex = `dungeon_class_${state.className}_${this.getDirectionName?.(dir) || "south"}`;
+    this.safeSetTexture(this.mercenary.body, tex);
+    const tint = GameState.MERCENARY_CONFIG?.classes?.[state.className]?.tint || profile.tint || 0xf4df9c;
+    if (profile.projectile) this.spawnRangedTrace?.(this.mercenary.x, this.mercenary.y - 12, target.x, target.y, tint);
+    else this.spawnAnimatedEffect?.("fx_dust_01", "fx-dust-01", this.mercenary.x + dir.x * 34, this.mercenary.y + dir.y * 34, { scale: 0.85 });
+    const damage = (GameState.getWeaponAp?.(this.registry) || 18) * (state.damageScale || 0.7);
+    this.damageEnemy(target, damage, profile.damageType || "physical");
   }
 }
 

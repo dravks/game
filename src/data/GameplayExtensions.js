@@ -2,11 +2,13 @@
   const GS = window.GameState;
   if (!GS) return;
 
-  GS.UPGRADE_SUCCESS_BY_LEVEL = { 1: 100, 2: 100, 3: 100, 4: 75, 5: 50, 6: 30, 7: 25, 8: 10, 9: 5, 10: 1 };
-  if (GS.DEFAULT_GAME_CONFIG?.difficulty?.very_hard) {
-    Object.assign(GS.DEFAULT_GAME_CONFIG.difficulty.very_hard, { label: "Very Hard", hpMultiplier: 1.75, damageMultiplier: 1.45, goldMultiplier: 1.75, expMultiplier: 1.7, dropMultiplier: 1.6, bossHpMultiplier: 2.25, spawnBonus: 3, chestQualityBonus: 0.24 });
-  }
-  if (GS.DEFAULT_GAME_CONFIG?.difficulty?.nightmare) GS.DEFAULT_GAME_CONFIG.difficulty.nightmare.label = "Very Hard";
+  const balanceConfig = window.BalanceConfig || {};
+  GS.UPGRADE_SUCCESS_BY_LEVEL = { ...(balanceConfig.UPGRADE_SUCCESS_BY_LEVEL || GS.UPGRADE_SUCCESS_BY_LEVEL || {}) };
+  Object.entries(balanceConfig.DIFFICULTY_OVERRIDES || {}).forEach(([difficultyKey, override]) => {
+    if (GS.DEFAULT_GAME_CONFIG?.difficulty?.[difficultyKey]) {
+      Object.assign(GS.DEFAULT_GAME_CONFIG.difficulty[difficultyKey], override);
+    }
+  });
 
   GS.SHOP_ITEMS = {
     hpPotion: { id: "hpPotion", name: "HP Potion", price: 20, type: "potion", countKey: "healthPotionCount", icon: "icon_08", baseIcon: "icon_08", color: 0xd67272, rarity: "common", count: 1 },
@@ -14,45 +16,51 @@
     upgradePaper: { id: "upgradePaper", name: "Upgrade Paper", price: 25, type: "upgradePaper", countKey: "weaponUpgradePaperCount", icon: "icon_11", baseIcon: "icon_11", color: 0xf4df9c, rarity: "common", count: 1 },
   };
 
-  GS.CLASS_LEVEL_SKILLS = {
-    warrior: [
-      { id: "skill_power_strike", name: "Power Strike", unlockLevel: 1, icon: "icon_05", tint: 0xd98852, mpCost: 10, cooldownMs: 3500, damageScale: 1.7, damageType: "physical", range: 145, description: "Heavy melee blow that crushes nearby enemies." },
-      { id: "skill_shield_bash", name: "Shield Bash", unlockLevel: 3, icon: "icon_03", tint: 0xb0c4de, mpCost: 12, cooldownMs: 5200, damageScale: 1.2, damageType: "physical", range: 130, description: "Short defensive stun-style hit." },
-      { id: "skill_cleave", name: "Cleave", unlockLevel: 5, icon: "icon_06", tint: 0xd98852, mpCost: 16, cooldownMs: 6000, damageScale: 1.35, damageType: "physical", range: 160, description: "Wide weapon swing for grouped enemies." },
-      { id: "skill_battle_cry", name: "Battle Cry", unlockLevel: 8, icon: "icon_12", tint: 0xffc857, mpCost: 20, cooldownMs: 10000, damageScale: 1.0, damageType: "physical", range: 145, description: "Temporary battle focus." },
-    ],
-    mage: [
-      { id: "skill_arcane_bolt", name: "Arcane Bolt", unlockLevel: 1, icon: "icon_06", tint: 0x77a9ff, mpCost: 14, cooldownMs: 3200, damageScale: 1.4, damageType: "magic", range: 330, description: "Focused ranged spell." },
-      { id: "skill_fireball", name: "Fireball", unlockLevel: 3, icon: "icon_08", tint: 0xff7a45, mpCost: 18, cooldownMs: 5600, damageScale: 1.55, damageType: "magic", range: 310, description: "Explosive fire spell." },
-      { id: "skill_frost_nova", name: "Frost Nova", unlockLevel: 5, icon: "icon_10", tint: 0x8fd3ff, mpCost: 22, cooldownMs: 8000, damageScale: 1.1, damageType: "magic", range: 180, description: "Cold burst around the caster." },
-      { id: "skill_meteor_spark", name: "Meteor Spark", unlockLevel: 8, icon: "icon_12", tint: 0xffc857, mpCost: 30, cooldownMs: 12000, damageScale: 2.1, damageType: "magic", range: 340, description: "High-cost burst spell." },
-    ],
-    rogue: [
-      { id: "skill_shadow_step", name: "Shadow Step", unlockLevel: 1, icon: "icon_08", tint: 0xae7cff, mpCost: 12, cooldownMs: 4200, damageScale: 1.5, damageType: "physical", range: 165, description: "Blink forward and cut enemies." },
-      { id: "skill_backstab", name: "Backstab", unlockLevel: 3, icon: "icon_07", tint: 0xd68cff, mpCost: 14, cooldownMs: 5200, damageScale: 1.85, damageType: "physical", range: 120, description: "High burst strike." },
-      { id: "skill_poison_blade", name: "Poison Blade", unlockLevel: 5, icon: "icon_10", tint: 0x70d66f, mpCost: 18, cooldownMs: 7000, damageScale: 1.25, damageType: "physical", range: 140, description: "Poison-flavored extra damage." },
-      { id: "skill_evasion", name: "Evasion", unlockLevel: 8, icon: "icon_12", tint: 0x9bd3ff, mpCost: 22, cooldownMs: 10000, damageScale: 1.0, damageType: "physical", range: 120, description: "Defensive agility burst." },
-    ],
-    archer: [
-      { id: "skill_power_shot", name: "Power Shot", unlockLevel: 1, icon: "icon_12", tint: 0xd8b15c, mpCost: 11, cooldownMs: 3000, damageScale: 1.35, damageType: "ranged", range: 360, description: "Long-range empowered arrow." },
-      { id: "skill_multi_shot", name: "Multi Shot", unlockLevel: 3, icon: "icon_06", tint: 0x9fd66f, mpCost: 16, cooldownMs: 6000, damageScale: 1.2, damageType: "ranged", range: 310, description: "Several arrows in a cone." },
-      { id: "skill_piercing_arrow", name: "Piercing Arrow", unlockLevel: 5, icon: "icon_05", tint: 0xf4df9c, mpCost: 18, cooldownMs: 7500, damageScale: 1.6, damageType: "ranged", range: 380, description: "Piercing line shot." },
-      { id: "skill_eagle_eye", name: "Eagle Eye", unlockLevel: 8, icon: "icon_01", tint: 0xffc857, mpCost: 20, cooldownMs: 10000, damageScale: 1.0, damageType: "ranged", range: 340, description: "Ranged focus buff." },
-    ],
+  GS.BALANCE = Object.assign({}, GS.BALANCE || {}, balanceConfig.BALANCE || {});
+  GS.ECONOMY_CONFIG = window.EconomyConfig || {};
+  GS.DUNGEON_REWARD_CONFIG = window.DungeonRewardConfig || {};
+  GS.SOCIAL_PVP_CONFIG = window.SocialPvpConfig || {};
+
+  GS.syncItemDatabase = function () {
+    const db = window.ItemDatabase;
+    if (!db?.generateClassEquipment) {
+      this.CLASS_EQUIPMENT = {};
+      console.error("[ItemDatabase] Missing or invalid. Equipment lookup is disabled.");
+      return false;
+    }
+    this.EQUIP_SLOTS = [...(db.EQUIP_SLOTS || this.EQUIP_SLOTS || [])];
+    this.RARITY_NAMES = this.deepClone ? this.deepClone(db.RARITY_NAMES) : JSON.parse(JSON.stringify(db.RARITY_NAMES));
+    this.ITEM_RARITY_DISTRIBUTION = this.deepClone ? this.deepClone(db.ITEM_RARITY_DISTRIBUTION) : JSON.parse(JSON.stringify(db.ITEM_RARITY_DISTRIBUTION));
+    this.SET_BONUSES = this.deepClone ? this.deepClone(db.SET_BONUSES) : JSON.parse(JSON.stringify(db.SET_BONUSES));
+    this.CLASS_EQUIPMENT = db.generateClassEquipment();
+    return true;
   };
 
-  GS.CLASS_COMBAT_BALANCE = {
-    warrior: { hpMultiplier: 1.16, mpMultiplier: 0.92, defenseMultiplier: 1.18, speedBonus: -6, apMultiplier: 1.08, role: "Melee Tank" },
-    rogue: { hpMultiplier: 0.96, mpMultiplier: 1.0, defenseMultiplier: 0.92, speedBonus: 18, apMultiplier: 1.03, role: "Melee Crit" },
-    mage: { hpMultiplier: 0.86, mpMultiplier: 1.28, defenseMultiplier: 0.78, speedBonus: -2, apMultiplier: 0.94, role: "Ranged Magic" },
-    archer: { hpMultiplier: 1.0, mpMultiplier: 1.04, defenseMultiplier: 0.94, speedBonus: 8, apMultiplier: 1.0, role: "Ranged Physical" },
+  GS.getItemTemplateById = function (itemId) {
+    return window.ItemDatabase?.getEquipmentTemplateById?.(itemId) || null;
   };
+
+  GS.getEquipmentTemplateById = function (itemId) {
+    return this.getItemTemplateById(itemId);
+  };
+
+  GS.CLASS_LEVEL_SKILLS = window.SkillDatabase?.CLASS_LEVEL_SKILLS || {};
+  GS.CLASS_SKILL_DEFS = window.SkillDatabase?.CLASS_SKILL_DEFS || {};
+  GS.CLASS_COMBAT_BALANCE = window.ClassBalanceConfig?.CLASS_COMBAT_BALANCE || {};
+  GS.BASIC_ATTACK_PROFILES = window.ClassBalanceConfig?.BASIC_ATTACK_PROFILES || {};
 
   GS.getClassCombatBalance = function (registryOrClass = null) {
     const className = typeof registryOrClass === "string"
       ? registryOrClass
       : registryOrClass?.get?.("playerClass") || this.DEFAULT_CLASS || "warrior";
-    return this.CLASS_COMBAT_BALANCE[String(className).toLowerCase()] || this.CLASS_COMBAT_BALANCE.warrior;
+    return window.ClassBalanceConfig?.getCombatBalance?.(className) || this.CLASS_COMBAT_BALANCE[String(className).toLowerCase()] || this.CLASS_COMBAT_BALANCE.warrior;
+  };
+
+  GS.getBasicAttackProfile = function (registryOrClass = null) {
+    const className = typeof registryOrClass === "string"
+      ? registryOrClass
+      : registryOrClass?.get?.("playerClass") || this.DEFAULT_CLASS || "warrior";
+    return window.ClassBalanceConfig?.getBasicAttackProfile?.(className) || this.BASIC_ATTACK_PROFILES[String(className).toLowerCase()] || this.BASIC_ATTACK_PROFILES.warrior;
   };
 
   const previousGetMaxHp = GS.getMaxHp;
@@ -85,19 +93,7 @@
     return Math.max(0, Math.floor(previousGetTotalDefense.call(this, registry) * (balance.defenseMultiplier || 1)));
   };
 
-  GS.QUEST_DEFS = {
-    forgotten_kekon: { id: "forgotten_kekon", title: "Forgotten Halls Hunt", dungeonId: "forgotten_halls", objectiveType: "kill", target: "kekon", required: 10, rewardGold: 40, rewardPaper: 1, description: "Kill 10 Kekon inside Forgotten Halls." },
-    forgotten_boss: { id: "forgotten_boss", title: "Kekon Chief", dungeonId: "forgotten_halls", objectiveType: "boss", target: "Kekon Chief", required: 1, rewardGold: 65, rewardPaper: 1, description: "Defeat the Kekon Chief." },
-    ashen_boss: { id: "ashen_boss", title: "Burned Captain", dungeonId: "ashen_barracks", objectiveType: "boss", target: "Burned Captain", required: 1, rewardGold: 90, rewardPaper: 2, description: "Defeat the Burned Captain." },
-    sunken_boss: { id: "sunken_boss", title: "Sunken Priest", dungeonId: "sunken_sanctum", objectiveType: "boss", target: "Sunken Priest", required: 1, rewardGold: 105, rewardPaper: 2, description: "Defeat the Sunken Priest." },
-    shadow_boss: { id: "shadow_boss", title: "Brood Mother", dungeonId: "shadow_silk_cave", objectiveType: "boss", target: "Brood Mother", required: 1, rewardGold: 120, rewardPaper: 2, description: "Defeat the Brood Mother." },
-    frost_boss: { id: "frost_boss", title: "Frost Lich", dungeonId: "frostbite_crypt", objectiveType: "boss", target: "Frost Lich", required: 1, rewardGold: 140, rewardPaper: 3, description: "Defeat the Frost Lich." },
-    ember_boss: { id: "ember_boss", title: "Ember Golem", dungeonId: "emberforge_depths", objectiveType: "boss", target: "Ember Golem", required: 1, rewardGold: 160, rewardPaper: 3, description: "Defeat the Ember Golem." },
-    bandit_boss: { id: "bandit_boss", title: "Bandit Warlord", dungeonId: "bandit_quarry", objectiveType: "boss", target: "Bandit Warlord", required: 1, rewardGold: 180, rewardPaper: 3, description: "Defeat the Bandit Warlord." },
-    necrotic_boss: { id: "necrotic_boss", title: "Graveborn King", dungeonId: "necrotic_catacombs", objectiveType: "boss", target: "Graveborn King", required: 1, rewardGold: 210, rewardPaper: 4, description: "Defeat the Graveborn King." },
-    crystal_boss: { id: "crystal_boss", title: "Crystal Guardian", dungeonId: "crystal_hollow", objectiveType: "boss", target: "Crystal Guardian", required: 1, rewardGold: 240, rewardPaper: 4, description: "Defeat the Crystal Guardian." },
-    abyss_clear: { id: "abyss_clear", title: "Abyss Gate: Very Hard", dungeonId: "abyss_gate", objectiveType: "clear", difficulty: "very_hard", required: 1, rewardGold: 400, rewardPaper: 5, rewardStatPoints: 1, description: "Clear Abyss Gate on Very Hard." },
-  };
+  GS.QUEST_DEFS = window.QuestDatabase?.QUEST_DEFS || {};
 
   GS.getShopItem = (itemId) => GS.SHOP_ITEMS[itemId] || null;
   GS.addStackableToInventory = function (registry, item, quantity = 1) {
@@ -131,11 +127,25 @@
   };
   GS.decrementInventoryStack = function (registry, itemId, amount = 1) { const items = [...this.getInventoryItems(registry)]; const index = items.findIndex((slot) => slot?.id === itemId); if (index >= 0) { const count = (items[index].count || 1) - amount; items[index] = count > 0 ? { ...items[index], count } : null; registry.set("inventoryItems", items); } };
   GS.useConsumable = function (registry, itemId, scene = null) { const def = this.getConsumableDef(itemId); if (!def) return false; const count = registry.get(def.countKey) || 0; if (count <= 0) return false; registry.set(def.countKey, count - 1); this.decrementInventoryStack(registry, itemId, 1); if (def.type === "healHp" && scene?.currentHp !== undefined) scene.currentHp = Math.min((scene.currentHp || 0) + (def.healAmount || this.HP_POTION_HEAL), this.getMaxHp(registry)); if (def.type === "restoreMp" && scene?.currentMp !== undefined) scene.currentMp = Math.min((scene.currentMp || 0) + (def.restoreAmount || this.MP_POTION_RESTORE), this.getMaxMp(registry)); return true; };
-  GS.getUnlockedClassSkills = function (registry, className = null) { const c = (className || registry.get("playerClass") || this.DEFAULT_CLASS).toLowerCase(); const level = registry.get("playerLevel") || 1; return (this.CLASS_LEVEL_SKILLS[c] || this.CLASS_LEVEL_SKILLS[this.DEFAULT_CLASS] || []).map((skill) => ({ ...skill, unlocked: level >= skill.unlockLevel })); };
-  GS.getClassSkillForClass = function (className) { const c = (className || this.DEFAULT_CLASS).toLowerCase(); return (this.CLASS_LEVEL_SKILLS[c] || [])[0] || this.CLASS_SKILL_DEFS[c] || this.CLASS_SKILL_DEFS[this.DEFAULT_CLASS]; };
+  GS.getUnlockedClassSkills = function (registry, className = null) { const c = (className || registry.get("playerClass") || this.DEFAULT_CLASS).toLowerCase(); const level = registry.get("playerLevel") || 1; return (window.SkillDatabase?.getClassSkills?.(c) || this.CLASS_LEVEL_SKILLS[c] || this.CLASS_LEVEL_SKILLS[this.DEFAULT_CLASS] || []).map((skill) => ({ ...skill, unlocked: level >= skill.unlockLevel })); };
+  GS.getClassSkillForClass = function (className) { const c = (className || this.DEFAULT_CLASS).toLowerCase(); return window.SkillDatabase?.getPrimarySkill?.(c) || (this.CLASS_LEVEL_SKILLS[c] || [])[0] || this.CLASS_SKILL_DEFS[c] || this.CLASS_SKILL_DEFS[this.DEFAULT_CLASS]; };
 
   GS.getQuestDefinitionsList = function () { return Object.values(this.QUEST_DEFS || {}); };
   GS.getQuestStates = function (registry) { const states = registry.get("questStates"); return states && typeof states === "object" ? { ...states } : {}; };
+  GS.migrateLegacyQuestState = function (registry) {
+    const legacy = registry.get("questState");
+    if (!legacy || legacy === "not_accepted") return false;
+    const states = this.getQuestStates(registry);
+    if (Object.keys(states).length > 0) return false;
+    const questId = "forgotten_kekon";
+    if (!this.QUEST_DEFS?.[questId]) return false;
+    states[questId] = {
+      state: legacy === "completed" ? "completed" : legacy === "ready_to_turn_in" ? "ready_to_turn_in" : "active",
+      progress: legacy === "completed" || legacy === "ready_to_turn_in" ? this.QUEST_DEFS[questId].required || 1 : 0,
+    };
+    registry.set("questStates", states);
+    return true;
+  };
   GS.acceptQuest = function (registry, questId) { const def = this.QUEST_DEFS?.[questId]; if (!def) return { ok: false, reason: "missing" }; const states = this.getQuestStates(registry); if (["active", "ready_to_turn_in", "completed"].includes(states[questId]?.state)) return { ok: false, reason: "already" }; states[questId] = { state: "active", progress: 0 }; registry.set("questStates", states); return { ok: true, quest: def }; };
   GS.getActiveQuests = function (registry) { const states = this.getQuestStates(registry); return Object.entries(states).map(([id, data]) => { const def = this.QUEST_DEFS?.[id]; if (!def || !["active", "ready_to_turn_in"].includes(data.state)) return null; const required = def.required || 1; return { ...def, state: data.state, progress: data.progress || 0, objectiveText: `${data.progress || 0}/${required} - ${def.description || def.title}` }; }).filter(Boolean); };
   GS.getAvailableQuests = function (registry) { const states = this.getQuestStates(registry); return this.getQuestDefinitionsList().filter((q) => !states[q.id] || states[q.id].state === "not_accepted"); };
@@ -143,58 +153,470 @@
   GS.turnInQuest = function (registry, questId) { const states = this.getQuestStates(registry); const data = states[questId]; const def = this.QUEST_DEFS?.[questId]; if (!def || data?.state !== "ready_to_turn_in") return { ok: false, reason: "not_ready" }; states[questId] = { ...data, state: "completed" }; registry.set("questStates", states); registry.set("gold", (registry.get("gold") || 0) + (def.rewardGold || 0)); if (def.rewardPaper) registry.set("weaponUpgradePaperCount", (registry.get("weaponUpgradePaperCount") || 0) + def.rewardPaper); if (def.rewardStatPoints) registry.set("statPoints", (registry.get("statPoints") || 0) + def.rewardStatPoints); registry.set("playerLevel", Math.max(registry.get("playerLevel") || 1, Math.min(10, 1 + Object.values(states).filter((q) => q.state === "completed").length))); return { ok: true, quest: def }; };
   GS.upgradeItemAtSource = function (registry, source) { const current = this.getItemFromSource(registry, source); if (!current?.slot) return { ok: false, reason: "not_equipment" }; const level = current.upgradeLevel || 0; const targetLevel = level + 1; if (targetLevel > 10) return { ok: false, reason: "max_level" }; const paper = registry.get("weaponUpgradePaperCount") || 0; if (paper <= 0) return { ok: false, reason: "no_paper" }; const cost = 20 + targetLevel * 10; const gold = registry.get("gold") || 0; if (gold < cost) return { ok: false, reason: "gold", cost }; registry.set("gold", gold - cost); registry.set("weaponUpgradePaperCount", paper - 1); const successRate = this.getUpgradeSuccessRate(targetLevel); const roll = Phaser?.Math?.Between ? Phaser.Math.Between(1, 100) : Math.ceil(Math.random() * 100); if (roll > successRate) return { ok: true, success: false, item: current, targetLevel, successRate, roll, cost }; const delta = this.getUpgradePreviewDelta(current); const upgraded = this.applyUpgradeDeltaToItem(current, delta); upgraded.upgradeLevel = targetLevel; upgraded.name = (current.name || "Item").replace(/ \+\d+$/, ""); this.setItemAtSource(registry, source, upgraded); return { ok: true, success: true, item: upgraded, targetLevel, successRate, roll, cost, statDelta: delta }; };
 
-  GS.extendClassEquipmentProgression = function () {
-    const rarityByTier = ["common", "common", "uncommon", "uncommon", "rare", "rare", "epic", "epic", "legendary", "legendary"];
-    const iconBySlot = { head: "icon_01", body: "icon_02", hands: "icon_03", legs: "icon_04", weapon: "icon_05" };
-    const setByClass = { warrior: "IronWill", mage: "ArcaneFocus", rogue: "ShadowStep", archer: "Marksman" };
-    const labels = {
-      warrior: { head: "War Helm", body: "War Plate", hands: "War Gauntlets", legs: "War Greaves", weapon: "War Blade", primary: "str" },
-      mage: { head: "Arcane Hood", body: "Arcane Robe", hands: "Arcane Gloves", legs: "Arcane Boots", weapon: "Arcane Staff", primary: "mp" },
-      rogue: { head: "Shadow Hood", body: "Shadow Garb", hands: "Shadow Grips", legs: "Shadow Treads", weapon: "Shadow Dagger", primary: "dex" },
-      archer: { head: "Ranger Cowl", body: "Ranger Vest", hands: "Ranger Gloves", legs: "Ranger Boots", weapon: "Ranger Bow", primary: "dex" },
-    };
+  GS.getActivityLog = function (registry) {
+    const value = registry.get("activityLog");
+    return Array.isArray(value) ? [...value] : [];
+  };
 
-    Object.entries(this.CLASS_EQUIPMENT || {}).forEach(([className, slots]) => {
-      Object.keys(slots).forEach((slot) => {
-        const list = slots[slot] || [];
-        const base = list[0] || { id: `${className}_${slot}_01`, name: `${className} ${slot}`, slot, stats: {}, rarity: "common" };
-        const cfg = labels[className] || labels.warrior;
-        for (let tier = list.length + 1; tier <= 10; tier++) {
-          const isWeapon = slot === "weapon";
-          const primaryValue = isWeapon ? Math.floor(tier * 1.8) : Math.ceil(tier * 1.35);
-          const stats = isWeapon
-            ? { ap: 8 + tier * 5, [cfg.primary]: primaryValue }
-            : {
-                [cfg.primary]: primaryValue,
-                hp: className === "warrior" ? 6 + tier * 5 : 3 + tier * 2,
-                mp: className === "mage" ? 6 + tier * 4 : tier,
-              };
-          list.push({
-            id: `${className.slice(0, 3)}_${slot}_${String(tier).padStart(2, "0")}`,
-            name: `${cfg[slot]} ${tier}`,
-            slot,
-            type: isWeapon ? "weapon" : "armor",
-            stats,
-            rarity: rarityByTier[tier - 1],
-            icon: base.icon || base.baseIcon || iconBySlot[slot] || "icon_11",
-            baseIcon: base.baseIcon || base.icon || iconBySlot[slot] || "icon_11",
-            color: this.RARITY_NAMES?.[rarityByTier[tier - 1]]?.color || base.color || base.baseColor || 0xffffff,
-            baseColor: base.baseColor || base.color || 0x8fa0aa,
-            setId: slot === "weapon" ? undefined : (base.setId || setByClass[className]),
-            requiredLevel: tier,
-          });
-        }
-        slots[slot] = list.slice(0, 10);
-      });
+  GS.pushActivityEvent = function (registry, message, type = "system") {
+    if (!message) return [];
+    const entry = { type, message: String(message), at: Date.now() };
+    const next = [entry, ...this.getActivityLog(registry)].slice(0, 20);
+    registry.set("activityLog", next);
+    return next;
+  };
+
+  GS.spendGold = function (registry, amount = 0, reason = "sink") {
+    const cost = Math.max(0, Math.floor(amount || 0));
+    const gold = registry.get("gold") || 0;
+    if (gold < cost) return { ok: false, reason: "gold", cost, gold };
+    registry.set("gold", gold - cost);
+    this.pushActivityEvent?.(registry, `Gold sink: -${cost} (${reason})`, "economy");
+    return { ok: true, cost, reason, gold: gold - cost };
+  };
+
+  GS.getDungeonEntryCost = function (difficultyKey = "normal") {
+    return window.EconomyConfig?.getDungeonEntryCost?.(difficultyKey) || 0;
+  };
+
+  GS.chargeDungeonEntry = function (registry, dungeonId = "forgotten_halls", difficultyKey = "normal") {
+    const cost = this.getDungeonEntryCost(difficultyKey);
+    const result = this.spendGold(registry, cost, `dungeon:${dungeonId}:${difficultyKey}`);
+    if (result.ok) registry.set("lastDungeonEntryFee", { dungeonId, difficultyKey, cost });
+    return result;
+  };
+
+  GS.getRepairCost = function (item) {
+    if (!item?.slot) return 0;
+    const normalized = this.normalizeItemDurability?.(item) || item;
+    const maxDurability = normalized.maxDurability || this.getItemMaxDurability?.(normalized) || 100;
+    const durability = normalized.durability ?? maxDurability;
+    const missing = Math.max(0, maxDurability - durability);
+    if (missing <= 0) return 0;
+    const fullCost = window.EconomyConfig?.getRepairCost?.(normalized) || 0;
+    return Math.max(1, Math.ceil(fullCost * (missing / Math.max(1, maxDurability))));
+  };
+
+  GS.getItemMaxDurability = function (item) {
+    if (!item?.slot) return null;
+    const tier = Math.max(1, item.tier || item.requiredLevel || 1);
+    return Math.max(40, 80 + tier * 6 + (item.upgradeLevel || 0) * 4);
+  };
+
+  GS.normalizeItemDurability = function (item) {
+    if (!item || !item.slot) return item;
+    const maxDurability = item.maxDurability || this.getItemMaxDurability(item) || 100;
+    const durability = item.durability === undefined ? maxDurability : Math.max(0, Math.min(maxDurability, item.durability));
+    return { ...item, durability, maxDurability };
+  };
+
+  GS.getItemDurabilityText = function (item) {
+    if (!item?.slot) return "";
+    const normalized = this.normalizeItemDurability(item);
+    return `${normalized.durability}/${normalized.maxDurability}`;
+  };
+
+  GS.applyDurabilityWear = function (registry, slots = ["weapon"], amount = 1, reason = "use") {
+    const changed = [];
+    slots.forEach((slot) => {
+      const current = this.normalizeItemDurability(this.getEquippedItem(registry, slot));
+      if (!current?.slot || current.durability <= 0) return;
+      const next = { ...current, durability: Math.max(0, current.durability - Math.max(1, amount || 1)) };
+      registry.set(`equipped_${slot}`, next);
+      changed.push({ slot, item: next });
+      if (next.durability === 0) this.pushActivityEvent?.(registry, `${next.name || slot} broken (${reason})`, "durability");
     });
+    return changed;
+  };
+
+  GS.repairEquipmentAtSource = function (registry, source) {
+    const item = this.getItemFromSource?.(registry, source);
+    if (!item?.slot) return { ok: false, reason: "not_equipment" };
+    const cost = this.getRepairCost(item);
+    if (cost <= 0) return { ok: true, item: this.normalizeItemDurability(item), cost: 0, alreadyFull: true };
+    const paid = this.spendGold(registry, cost, `repair:${item.id || item.name || item.slot}`);
+    if (!paid.ok) return paid;
+    const normalized = this.normalizeItemDurability(item);
+    const repaired = { ...normalized, durability: normalized.maxDurability || window.EconomyConfig?.GOLD_SINKS?.repair?.durabilityRestore || 100 };
+    this.setItemAtSource?.(registry, source, repaired);
+    return { ok: true, item: repaired, cost };
+  };
+
+  GS.getAllRepairPlan = function (registry) {
+    const equippedSources = (this.EQUIP_SLOTS || [])
+      .map((slot) => ({ sourceType: "equipped", slot, label: slot, item: this.getEquippedItem(registry, slot) }))
+      .filter((source) => source.item?.slot);
+    const inventorySources = (this.getInventoryItems(registry) || [])
+      .map((item, index) => ({ sourceType: "inventory", index, label: `Bag ${index + 1}`, item }))
+      .filter((source) => source.item?.slot);
+    const sources = [...equippedSources, ...inventorySources]
+      .map((source) => {
+        const item = this.normalizeItemDurability?.(source.item) || source.item;
+        return { ...source, item, cost: this.getRepairCost(item) };
+      });
+    return {
+      sources,
+      damaged: sources.filter((source) => source.cost > 0),
+      totalCost: sources.reduce((sum, source) => sum + (source.cost || 0), 0),
+    };
+  };
+
+  GS.getEquippedRepairPlan = function (registry) {
+    const sources = (this.EQUIP_SLOTS || [])
+      .map((slot) => ({ sourceType: "equipped", slot, label: slot, item: this.getEquippedItem(registry, slot) }))
+      .filter((source) => source.item?.slot)
+      .map((source) => {
+        const item = this.normalizeItemDurability?.(source.item) || source.item;
+        return { ...source, item, cost: this.getRepairCost(item) };
+      });
+    return {
+      sources,
+      damaged: sources.filter((source) => source.cost > 0),
+      totalCost: sources.reduce((sum, source) => sum + (source.cost || 0), 0),
+    };
+  };
+
+  GS.repairEquippedGear = function (registry) {
+    const plan = this.getEquippedRepairPlan?.(registry) || { damaged: [], totalCost: 0 };
+    if (!plan.sources?.length) return { ok: false, reason: "no_equipment", cost: 0 };
+    if (!plan.damaged.length || plan.totalCost <= 0) return { ok: true, reason: "already_full", cost: 0, repaired: 0 };
+    const paid = this.spendGold(registry, plan.totalCost, "repair:equipped");
+    if (!paid.ok) return paid;
+    plan.damaged.forEach((source) => {
+      const normalized = this.normalizeItemDurability?.(source.item) || source.item;
+      this.setItemAtSource?.(registry, source, { ...normalized, durability: normalized.maxDurability || 100 });
+    });
+    return { ok: true, cost: plan.totalCost, repaired: plan.damaged.length };
+  };
+
+  GS.repairAllGear = function (registry) {
+    const plan = this.getAllRepairPlan?.(registry) || { sources: [], damaged: [], totalCost: 0 };
+    if (!plan.sources?.length) return { ok: false, reason: "no_equipment", cost: 0 };
+    if (!plan.damaged.length || plan.totalCost <= 0) return { ok: true, reason: "already_full", cost: 0, repaired: 0, total: plan.sources.length };
+    const paid = this.spendGold(registry, plan.totalCost, "repair:all_gear");
+    if (!paid.ok) return paid;
+    plan.damaged.forEach((source) => {
+      const normalized = this.normalizeItemDurability?.(source.item) || source.item;
+      this.setItemAtSource?.(registry, source, { ...normalized, durability: normalized.maxDurability || 100 });
+    });
+    return { ok: true, cost: plan.totalCost, repaired: plan.damaged.length, total: plan.sources.length };
+  };
+
+  GS.setPartyLootMode = function (registry, lootMode = "round_robin") {
+    const state = this.getPartyState(registry);
+    if (!state.members?.length) return { ok: false, reason: "no_party" };
+    state.lootMode = lootMode;
+    registry.set("partyState", state);
+    this.pushActivityEvent?.(registry, `Party loot mode: ${lootMode}`, "social");
+    return { ok: true, party: state };
+  };
+
+  GS.addLocalPartyMember = function (registry, member = {}) {
+    const state = this.getPartyState(registry);
+    if (!state.members?.length) this.createLocalParty(registry);
+    const next = this.getPartyState(registry);
+    const max = window.SocialPvpConfig?.PARTY?.maxSize || 5;
+    if ((next.members || []).length >= max) return { ok: false, reason: "full", party: next };
+    const index = next.members.length + 1;
+    const classes = ["warrior", "rogue", "mage", "archer"];
+    next.members.push({
+      name: member.name || `Companion${index}`,
+      className: member.className || classes[(index - 1) % classes.length],
+    });
+    registry.set("partyState", next);
+    this.pushActivityEvent?.(registry, `Party member joined: ${next.members[next.members.length - 1].name}`, "social");
+    return { ok: true, party: next };
+  };
+
+  GS.depositGuildGold = function (registry, amount = 50) {
+    const guild = registry.get("guildState");
+    if (!guild) return { ok: false, reason: "no_guild" };
+    const paid = this.spendGold(registry, amount, "guild_bank");
+    if (!paid.ok) return paid;
+    const next = { ...guild, bankGold: (guild.bankGold || 0) + amount };
+    registry.set("guildState", next);
+    this.pushActivityEvent?.(registry, `Guild bank deposit: ${amount}g`, "guild");
+    return { ok: true, guild: next, amount };
+  };
+
+  GS.setGuildNotice = function (registry, notice = "Prepare for dungeon runs.") {
+    const guild = registry.get("guildState");
+    if (!guild) return { ok: false, reason: "no_guild" };
+    const next = { ...guild, notice };
+    registry.set("guildState", next);
+    this.pushActivityEvent?.(registry, `Guild notice: ${notice}`, "guild");
+    return { ok: true, guild: next };
+  };
+
+  GS.setPvpQueueState = function (registry, queued = true) {
+    const state = this.getPvpState(registry);
+    state.queued = !!queued;
+    state.queueType = queued ? "solo" : null;
+    registry.set("pvpState", state);
+    this.pushActivityEvent?.(registry, queued ? "PvP queue joined" : "PvP queue left", "pvp");
+    return { ok: true, pvp: state };
+  };
+
+  GS.claimPvpReward = function (registry) {
+    const state = this.getPvpState(registry);
+    const unclaimedWins = Math.max(0, (state.wins || 0) - (state.claimedWins || 0));
+    if (unclaimedWins <= 0) return { ok: false, reason: "no_reward", pvp: state };
+    const reward = unclaimedWins * 12 + Math.max(0, state.rating - 1000);
+    registry.set("gold", (registry.get("gold") || 0) + reward);
+    state.claimedWins = state.wins || 0;
+    registry.set("pvpState", state);
+    this.pushActivityEvent?.(registry, `PvP reward claimed: +${reward}g`, "pvp");
+    return { ok: true, gold: reward, pvp: state };
+  };
+
+  GS.getMarketTax = function (amount = 0) {
+    return window.EconomyConfig?.getMarketTax?.(amount) || 0;
+  };
+
+  GS.getDungeonClearScore = function ({ kills = 0, total = 1 } = {}) {
+    return window.DungeonRewardConfig?.getClearScore?.(kills, total) || { grade: "C", killRatio: 0, chestTierBonus: 0, goldMultiplier: 1, xpMultiplier: 1 };
+  };
+
+  GS.getDungeonChestRewardPlan = function ({ kills = 0, total = 1, difficultyKey = "normal", baseTier = 1 } = {}) {
+    const score = this.getDungeonClearScore({ kills, total });
+    const difficulty = window.DungeonRewardConfig?.getDifficultyBonus?.(difficultyKey) || { tierBonus: 0, materialBonus: 0 };
+    return {
+      score,
+      difficulty,
+      tier: Math.max(1, Math.min(10, Math.floor(baseTier + (score.chestTierBonus || 0) + (difficulty.tierBonus || 0)))),
+      materialBonus: difficulty.materialBonus || 0,
+      goldMultiplier: score.goldMultiplier || 1,
+      xpMultiplier: score.xpMultiplier || 1,
+    };
+  };
+
+  GS.getBossPhasePlan = function (dungeonId = "default") {
+    return window.DungeonRewardConfig?.getBossPhases?.(dungeonId) || [];
+  };
+
+  GS.getPartyState = function (registry) {
+    const state = registry.get("partyState");
+    return state && typeof state === "object" ? { ...state } : { members: [], lootMode: window.SocialPvpConfig?.PARTY?.defaultLootMode || "round_robin" };
+  };
+
+  GS.createLocalParty = function (registry, leaderName = null) {
+    const playerName = leaderName || registry.get("characterName") || "Player";
+    const state = { leader: playerName, members: [{ name: playerName, className: registry.get("playerClass") || this.DEFAULT_CLASS }], lootMode: window.SocialPvpConfig?.PARTY?.defaultLootMode || "round_robin" };
+    registry.set("partyState", state);
+    this.pushActivityEvent?.(registry, `Party created: ${playerName}`, "social");
+    return { ok: true, party: state };
+  };
+
+  GS.MERCENARY_CONFIG = {
+    lootCut: 0.35,
+    attackSlow: 1.45,
+    durationHours: [1, 3, 6],
+    classes: {
+      warrior: { label: "Warrior Mercenary", hourlyCost: 90, tint: 0xd98852, role: "Melee guard", damageScale: 0.7 },
+      rogue: { label: "Rogue Mercenary", hourlyCost: 105, tint: 0xae7cff, role: "Fast melee", damageScale: 0.72 },
+      mage: { label: "Mage Mercenary", hourlyCost: 120, tint: 0x77a9ff, role: "Ranged magic", damageScale: 0.68 },
+      archer: { label: "Archer Mercenary", hourlyCost: 110, tint: 0xd8b15c, role: "Ranged physical", damageScale: 0.7 },
+    },
+  };
+
+  GS.getMercenaryState = function (registry) {
+    const state = registry.get("mercenaryState");
+    if (!state || !state.className || !state.expiresAt) return null;
+    if (Date.now() >= state.expiresAt) {
+      registry.set("mercenaryState", null);
+      this.pushActivityEvent?.(registry, "Mercenary contract expired", "social");
+      return null;
+    }
+    return { ...state };
+  };
+
+  GS.getMercenaryHireCost = function (className = "warrior", hours = 1) {
+    const def = this.MERCENARY_CONFIG.classes[String(className).toLowerCase()] || this.MERCENARY_CONFIG.classes.warrior;
+    return Math.max(1, Math.floor((def.hourlyCost || 90) * Math.max(1, hours || 1)));
+  };
+
+  GS.hireMercenary = function (registry, className = "warrior", hours = 1) {
+    const resolvedClass = String(className || "warrior").toLowerCase();
+    const def = this.MERCENARY_CONFIG.classes[resolvedClass];
+    if (!def) return { ok: false, reason: "class" };
+    const durationHours = Math.max(1, hours || 1);
+    const cost = this.getMercenaryHireCost(resolvedClass, durationHours);
+    const paid = this.spendGold(registry, cost, `mercenary:${resolvedClass}:${durationHours}h`);
+    if (!paid.ok) return paid;
+    const now = Date.now();
+    const state = {
+      className: resolvedClass,
+      label: def.label,
+      hiredAt: now,
+      expiresAt: now + durationHours * 60 * 60 * 1000,
+      durationHours,
+      lootCut: this.MERCENARY_CONFIG.lootCut,
+      attackSlow: this.MERCENARY_CONFIG.attackSlow,
+      damageScale: def.damageScale || 0.7,
+    };
+    registry.set("mercenaryState", state);
+    this.pushActivityEvent?.(registry, `${def.label} hired for ${durationHours}h`, "social");
+    return { ok: true, mercenary: state, cost };
+  };
+
+  GS.dismissMercenary = function (registry) {
+    registry.set("mercenaryState", null);
+    this.pushActivityEvent?.(registry, "Mercenary dismissed", "social");
+    return { ok: true };
+  };
+
+  GS.getMercenaryRemainingText = function (registry) {
+    const state = this.getMercenaryState(registry);
+    if (!state) return "None";
+    const remainingMs = Math.max(0, state.expiresAt - Date.now());
+    const minutes = Math.ceil(remainingMs / 60000);
+    if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+    return `${minutes}m`;
+  };
+
+  GS.applyMercenaryLootCut = function (registry, amount = 0, source = "loot") {
+    const value = Math.max(0, Math.floor(amount || 0));
+    const state = this.getMercenaryState(registry);
+    if (!state || value <= 0) return { playerAmount: value, mercenaryAmount: 0, active: false };
+    const mercenaryAmount = Math.floor(value * (state.lootCut ?? this.MERCENARY_CONFIG.lootCut));
+    const playerAmount = Math.max(0, value - mercenaryAmount);
+    if (mercenaryAmount > 0) this.pushActivityEvent?.(registry, `${state.label || "Mercenary"} cut: ${mercenaryAmount} ${source}`, "social");
+    return { playerAmount, mercenaryAmount, active: true };
+  };
+
+  GS.shouldMercenaryClaimDrop = function (registry) {
+    const state = this.getMercenaryState(registry);
+    if (!state) return false;
+    return Math.random() < (state.lootCut ?? this.MERCENARY_CONFIG.lootCut);
+  };
+
+  GS.clearLocalParty = function (registry) {
+    registry.set("partyState", null);
+    this.pushActivityEvent?.(registry, "Party disbanded", "social");
+    return { ok: true };
+  };
+
+  GS.getGuildCreationCost = function () {
+    return window.SocialPvpConfig?.GUILD?.creationCost || 0;
+  };
+
+  GS.createLocalGuild = function (registry, guildName) {
+    const name = String(guildName || "").trim();
+    if (!name) return { ok: false, reason: "name" };
+    const max = window.SocialPvpConfig?.GUILD?.maxNameLength || 18;
+    if (name.length > max) return { ok: false, reason: "long_name", max };
+    const paid = this.spendGold(registry, this.getGuildCreationCost(), `guild:${name}`);
+    if (!paid.ok) return paid;
+    const guild = { name, rank: "Leader", members: 1, capacity: window.SocialPvpConfig?.GUILD?.starterCapacity || 30 };
+    registry.set("guildState", guild);
+    this.pushActivityEvent?.(registry, `Guild created: ${name}`, "social");
+    return { ok: true, guild };
+  };
+
+  GS.getPvpState = function (registry) {
+    const state = registry.get("pvpState");
+    return state && typeof state === "object" ? { ...state } : { rating: window.SocialPvpConfig?.PVP?.rating?.defaultRating || 1000, wins: 0, losses: 0, streak: 0 };
+  };
+
+  GS.recordPvpResult = function (registry, won = false) {
+    const cfg = window.SocialPvpConfig?.PVP?.rating || {};
+    const state = this.getPvpState(registry);
+    if (won) {
+      state.wins += 1;
+      state.streak = Math.max(1, (state.streak || 0) + 1);
+      state.rating += (cfg.winGain || 18) + Math.max(0, state.streak - 1) * (cfg.streakBonus || 0);
+    } else {
+      state.losses += 1;
+      state.streak = 0;
+      state.rating = Math.max(0, state.rating - (cfg.lossPenalty || 12));
+    }
+    registry.set("pvpState", state);
+    this.updateQuestProgress?.(registry, { type: "pvp", target: "arena", amount: 1 });
+    this.pushActivityEvent?.(registry, `PvP ${won ? "win" : "loss"} | Rating ${state.rating}`, "pvp");
+    return { ok: true, pvp: state };
+  };
+
+  GS.extendClassEquipmentProgression = function () {
+    return this.syncItemDatabase?.() || false;
+  };
+
+  const previousGetEquipRequirement = GS.getEquipRequirement;
+  GS.getEquipRequirement = function (item, className = null) {
+    const requirement = previousGetEquipRequirement.call(this, item, className);
+    if (!item?.requiredStatValue) return requirement;
+    const itemClass = this.getItemFamilyClass(item, className || this.DEFAULT_CLASS);
+    const statKey = this.getPrimaryStatKeyForClass(itemClass);
+    return {
+      className: itemClass,
+      statKey,
+      label: this.getStatLabel(statKey),
+      value: Math.max(requirement?.value || 0, item.requiredStatValue || 0),
+    };
+  };
+
+  GS.getActiveSetBonusStats = function (registry) {
+    const counts = {};
+    (this.EQUIP_SLOTS || []).forEach((slot) => {
+      const item = this.getEquippedItem(registry, slot);
+      if (item?.setId) counts[item.setId] = (counts[item.setId] || 0) + 1;
+    });
+    const stats = { hp: 0, mp: 0, ap: 0, speed: 0, damageReduction: 0, spellDamage: 0, critChance: 0, attackSpeed: 0 };
+    Object.entries(counts).forEach(([setId, count]) => {
+      if (setId === "IronWill") {
+        if (count >= 2) stats.hp += 20;
+        if (count >= 4) { stats.hp += 40; stats.damageReduction += 0.05; }
+      } else if (setId === "ArcaneFocus") {
+        if (count >= 2) stats.mp += 15;
+        if (count >= 4) { stats.mp += 30; stats.spellDamage += 0.08; }
+      } else if (setId === "ShadowStep") {
+        if (count >= 2) stats.speed += 9;
+        if (count >= 4) { stats.speed += 18; stats.critChance += 0.08; }
+      } else if (setId === "Marksman") {
+        if (count >= 2) stats.ap += 3;
+        if (count >= 4) { stats.ap += 6; stats.attackSpeed += 0.07; }
+      }
+    });
+    return stats;
+  };
+
+  const setBonusGetMaxHp = GS.getMaxHp;
+  GS.getMaxHp = function (registry) {
+    return setBonusGetMaxHp.call(this, registry) + (this.getActiveSetBonusStats?.(registry).hp || 0);
+  };
+
+  const setBonusGetMaxMp = GS.getMaxMp;
+  GS.getMaxMp = function (registry) {
+    return setBonusGetMaxMp.call(this, registry) + (this.getActiveSetBonusStats?.(registry).mp || 0);
+  };
+
+  const setBonusGetWeaponAp = GS.getWeaponAp;
+  GS.getWeaponAp = function (registry) {
+    const ap = setBonusGetWeaponAp.call(this, registry) + (this.getActiveSetBonusStats?.(registry).ap || 0);
+    const weapon = this.normalizeItemDurability?.(this.getEquippedItem(registry, "weapon"));
+    if (!weapon?.slot || !weapon.maxDurability) return ap;
+    const ratio = weapon.durability / weapon.maxDurability;
+    if (ratio <= 0) return Math.max(1, Math.floor(ap * 0.35));
+    if (ratio < 0.2) return Math.max(1, Math.floor(ap * 0.75));
+    return ap;
+  };
+
+  const setBonusGetPlayerSpeed = GS.getPlayerSpeed;
+  GS.getPlayerSpeed = function (registry) {
+    return setBonusGetPlayerSpeed.call(this, registry) + (this.getActiveSetBonusStats?.(registry).speed || 0);
+  };
+
+  GS.pickRandomEquipment = function (className, slot) {
+    this.extendClassEquipmentProgression?.();
+    const tier = window.Phaser?.Math?.Between ? window.Phaser.Math.Between(1, 2) : 1;
+    const template = window.ItemDatabase?.pickClassEquipmentByTier?.(className || this.DEFAULT_CLASS, slot, tier);
+    if (!template) return null;
+    return this.createInventoryItemFromTemplate(template, template?.rarity || "common");
   };
 
   GS.pickClassEquipmentByTier = function (registry, slot = "weapon", tier = 1, className = null) {
     this.extendClassEquipmentProgression?.();
     const playerClass = className || registry.get("playerClass") || this.DEFAULT_CLASS || "warrior";
-    const list = this.CLASS_EQUIPMENT?.[playerClass]?.[slot] || this.CLASS_EQUIPMENT?.[this.DEFAULT_CLASS]?.[slot] || [];
-    if (!list.length) return null;
-    return list[Math.max(0, Math.min(list.length - 1, tier - 1))];
+    return window.ItemDatabase?.pickClassEquipmentByTier?.(playerClass, slot, tier) || null;
   };
 
   GS.createBossEquipmentReward = function (registry, variantKey = "forgotten_halls", difficultyKey = "normal") {
@@ -219,6 +641,25 @@
       return { ok: true, convertedToGold: true, item, value: this.getItemShopValue(item) };
     }
     return { ok: true, item, index };
+  };
+
+  const durabilityCreateInventoryItemFromTemplate = GS.createInventoryItemFromTemplate;
+  GS.createInventoryItemFromTemplate = function (template, rarityOverride = null) {
+    return this.normalizeItemDurability?.(durabilityCreateInventoryItemFromTemplate.call(this, template, rarityOverride));
+  };
+
+  const durabilityAddToInventoryBase = GS.addToInventory;
+  GS.addToInventory = function (registry, item) {
+    return durabilityAddToInventoryBase.call(this, registry, this.normalizeItemDurability?.(item));
+  };
+
+  const durabilityEquipFromInventory = GS.equipFromInventory;
+  GS.equipFromInventory = function (registry, index) {
+    const result = durabilityEquipFromInventory.call(this, registry, index);
+    if (result?.ok && result.item?.slot) {
+      registry.set(`equipped_${result.item.slot}`, this.normalizeItemDurability?.(registry.get(`equipped_${result.item.slot}`)));
+    }
+    return result;
   };
 
   GS.MATERIAL_DEFS = Object.assign({}, GS.MATERIAL_DEFS || {}, {
@@ -314,7 +755,8 @@
 
   GS.getXpForNextLevel = function (level = 1) {
     const safeLevel = Math.max(1, level || 1);
-    return Math.floor(90 + safeLevel * safeLevel * 55 + safeLevel * 35);
+    const balance = this.BALANCE || {};
+    return Math.floor((balance.xpBase || 90) + safeLevel * safeLevel * (balance.xpQuadratic || 55) + safeLevel * (balance.xpLinear || 35));
   };
 
   GS.getPlayerXpState = function (registry) {
@@ -329,7 +771,7 @@
     let level = Math.max(1, registry.get("playerLevel") || 1);
     let xp = Math.max(0, registry.get("playerXp") || 0) + gained;
     let levelsGained = 0;
-    while (xp >= this.getXpForNextLevel(level) && level < 60) {
+    while (xp >= this.getXpForNextLevel(level) && level < (this.BALANCE?.levelCap || 60)) {
       xp -= this.getXpForNextLevel(level);
       level += 1;
       levelsGained += 1;
@@ -364,7 +806,7 @@
       while (items.length <= firstEmpty) items.push(null);
     }
     if (firstEmpty < 0) return -1;
-    items[firstEmpty] = { ...item };
+    items[firstEmpty] = { ...(this.normalizeItemDurability?.(item) || item) };
     registry.set("inventoryItems", items);
     return firstEmpty;
   };
@@ -376,7 +818,11 @@
     const afterPaper = registry.get("weaponUpgradePaperCount") || 0;
     const usedPaper = result?.ok ? Math.max(0, beforePaper - afterPaper) : 0;
     if (usedPaper > 0) this.decrementInventoryStack?.(registry, "upgradePaper", usedPaper);
-    if (result?.ok) this.saveProgress?.(registry);
+    if (result?.ok) {
+      this.updateQuestProgress?.(registry, { type: "upgrade", target: "equipment", amount: 1 });
+      this.pushActivityEvent?.(registry, result.success ? `Upgrade success: +${result.targetLevel}` : `Upgrade failed: +${result.targetLevel}`, "upgrade");
+      this.saveProgress?.(registry);
+    }
     return result;
   };
 
@@ -392,7 +838,50 @@
       "materials",
       "currentHp",
       "currentMp",
+      "activityLog",
+      "partyState",
+      "guildState",
+      "pvpState",
+      "lastDungeonEntryFee",
     ])];
+  };
+
+  const previousSmoothTransitionToNewSystem = GS.smoothTransitionToNewSystem;
+  GS.smoothTransitionToNewSystem = function (registry) {
+    previousSmoothTransitionToNewSystem.call(this, registry);
+    this.migrateLegacyQuestState?.(registry);
+    if (!registry.get("questStates")) registry.set("questStates", {});
+    if (!registry.get("hotbarSlots")) registry.set("hotbarSlots", new Array(this.HOTBAR_SIZE || 6).fill(null));
+    if (!registry.get("activityLog")) registry.set("activityLog", []);
+    if (!registry.get("pvpState")) registry.set("pvpState", this.getPvpState(registry));
+  };
+
+  GS.getHotbarItems = function (registry) {
+    const slots = registry.get("hotbarSlots") || new Array(this.HOTBAR_SIZE || 6).fill(null);
+    return slots.map((id) => {
+      if (!id) return null;
+      const skill = this.getSkillDefById?.(id, registry.get("playerClass") || this.DEFAULT_CLASS);
+      const consumable = this.getConsumableDef?.(id) || this.CONSUMABLE_DEFS?.[id];
+      return skill || consumable || { id, name: id };
+    });
+  };
+
+  GS.useHotbarItem = function (registry, index, scene = null) {
+    const entryId = this.getHotbarSlot?.(registry, index);
+    if (!entryId) return { ok: false, reason: "empty" };
+    return this.useHotbarEntry?.(registry, entryId, scene) || { ok: false, reason: "unsupported" };
+  };
+
+  GS.getDefense = function (registry) {
+    return this.getTotalDefense?.(registry) || 0;
+  };
+
+  GS.getActiveSetBonuses = function (registry) {
+    return this.getSetBonusesForEquipped?.(registry) || [];
+  };
+
+  GS.getSetBonusSummary = function (registry) {
+    return (this.getSetBonusesForEquipped?.(registry) || []).map((bonus) => `${bonus.name}: ${bonus.effect}`);
   };
 
   GS.extendClassEquipmentProgression();

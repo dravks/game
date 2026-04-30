@@ -138,6 +138,7 @@ class PrototypeScene extends Phaser.Scene {
       frameWidth: 192,
       frameHeight: 192,
     });
+    this.loadClassAndCatImages();
 
     // Visible town NPC sprite. Used by NpcManager for service NPCs.
     this.load.spritesheet("npc_pawn_idle_sheet", "assets/sprites/units/npc_pawn_idle.png", {
@@ -256,6 +257,7 @@ class PrototypeScene extends Phaser.Scene {
     this.uiManager.drawCityHeader(width);
     this.uiManager.drawUiLayer(width, height);
     this.uiManager.createInteractionUi(width, height);
+    this.createMmoSystemsHudButton(width, height);
     
     // Apply return state
     this.applyCityReturnState(returnState);
@@ -337,6 +339,7 @@ class PrototypeScene extends Phaser.Scene {
     }
 
     // Update UI
+    this.npcManager?.update?.();
     this.refreshHoveredInventoryTooltip();
     this.updateInteractionPrompt();
     this.updateMinimapPlayerMarker();
@@ -479,6 +482,20 @@ class PrototypeScene extends Phaser.Scene {
   }
 
   // ==================== ANIMATIONS ====================  
+  loadClassAndCatImages() {
+    const base = "class%20and%20cat/";
+    const dirs = ["south", "south-east", "east", "north-east", "north", "north-west", "west", "south-west"];
+    const folders = {
+      warrior: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_warri",
+      mage: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_mage",
+      rogue: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_rogue",
+      archer: "A_32px_low_top-down_pixel_art_fantasy_MMORPG_arche",
+    };
+    Object.entries(folders).forEach(([className, folder]) => {
+      dirs.forEach((dir) => this.load.image(`city_class_${className}_${dir}`, `${base}${folder}/rotations/${dir}.png`));
+    });
+  }
+
   createAnimations() {
     // Player animations
     this.anims.create({
@@ -498,6 +515,16 @@ class PrototypeScene extends Phaser.Scene {
 
   setPlayerAnimation(isRunning, directionX = 0) {
     if (!this.player) return;
+    const textureKey = this.getClassPlayerTextureKey(this.playerFacing);
+    if (textureKey && this.textures.exists(textureKey)) {
+      this.player.anims?.stop?.();
+      this.player.setTexture(textureKey).setDisplaySize(46, 46);
+      this.player.setFlipX(false);
+      this.player.body?.setSize?.(30, 30);
+      this.player.body?.setOffset?.(8, 8);
+      this.player.setAngle(isRunning ? Math.sin(this.time.now / 90) * 1.8 : 0);
+      return;
+    }
     
     if (isRunning) {
       this.player.play("player-run", true);
@@ -600,6 +627,7 @@ class PrototypeScene extends Phaser.Scene {
       if (returnState.rewardItemName) this.pushActivityFeed(`Loot: ${returnState.rewardItemName}`);
       (returnState.materials || []).forEach((mat) => this.pushActivityFeed(`Material: ${mat.name} x${mat.amount}`));
       if (returnState.xpGained) this.pushActivityFeed(`XP: +${returnState.xpGained}`);
+      if (returnState.clearGrade) this.pushActivityFeed(`Clear Grade: ${returnState.clearGrade}`);
     }
     this.refreshCityUi();
     window.GameState?.saveProgress?.(this.registry);
@@ -642,6 +670,36 @@ class PrototypeScene extends Phaser.Scene {
       text.setText(this.activityFeed[index] || "");
       text.setAlpha(this.activityFeed[index] ? 1 : 0.25);
     });
+  }
+
+  createMmoSystemsHudButton(width, height) {
+    const x = width - 94;
+    const y = height - 194;
+    const bg = this.add.rectangle(x, y, 138, 46, 0x10252b, 0.92)
+      .setStrokeStyle(1, 0x7fd6c2, 0.9)
+      .setScrollFactor(0)
+      .setDepth(34)
+      .setInteractive({ useHandCursor: true });
+    const label = this.add.text(x, y - 9, "MMO SYSTEMS", {
+      fontFamily: "Trebuchet MS, Arial, sans-serif",
+      fontSize: "12px",
+      color: "#bff6e8",
+      stroke: "#061013",
+      strokeThickness: 2,
+      fontStyle: "bold",
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(35);
+    const detail = this.add.text(x, y + 9, "Party | Guild | PvP | Tax", {
+      fontFamily: "Trebuchet MS, Arial, sans-serif",
+      fontSize: "9px",
+      color: "#d7c58f",
+      stroke: "#061013",
+      strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(35);
+    bg.on("pointerdown", (pointer) => {
+      pointer?.event?.stopPropagation?.();
+      this.serviceManager?.openServicePanel?.({ name: "MMO Systems", serviceType: "mmo_systems" });
+    });
+    this.mmoSystemsButton = { bg, label, detail };
   }
 
   // ==================== DIALOG MANAGEMENT ====================  
@@ -855,6 +913,25 @@ class PrototypeScene extends Phaser.Scene {
       const action = nearest.serviceType === "quest" ? "Talk" : "Open";
       textObj.setText(`[E] : `);
     }
+  }
+
+  getDirectionName(vec) {
+    const angle = Phaser.Math.RadToDeg(Math.atan2(vec?.y || 0, vec?.x || 0));
+    if (angle >= -22.5 && angle < 22.5) return "east";
+    if (angle >= 22.5 && angle < 67.5) return "south-east";
+    if (angle >= 67.5 && angle < 112.5) return "south";
+    if (angle >= 112.5 && angle < 157.5) return "south-west";
+    if (angle >= 157.5 || angle < -157.5) return "west";
+    if (angle >= -157.5 && angle < -112.5) return "north-west";
+    if (angle >= -112.5 && angle < -67.5) return "north";
+    return "north-east";
+  }
+
+  getClassPlayerTextureKey(direction = null) {
+    const className = String(this.registry.get("playerClass") || GameState.DEFAULT_CLASS || "warrior").toLowerCase();
+    const dir = this.getDirectionName(direction || this.playerFacing || new Phaser.Math.Vector2(0, 1));
+    const key = `city_class_${className}_${dir}`;
+    return this.textures.exists(key) ? key : null;
   }
 
   handlePointerInteraction(pointer) {

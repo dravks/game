@@ -24,6 +24,9 @@ class NpcManager {
     this.createDecorativeNpc(300, 275, "Traveler");
     this.createDecorativeNpc(700, 275, "Merchant");
     this.createDecorativeNpc(400, 415, "Guard");
+
+    // Temporary test NPC. Safe to remove later from this single line.
+    this.createTemporaryClassNpc(610, 360, "Çakır", "archer");
   }
 
   createNpc(x, y, name, serviceType, options = {}) {
@@ -117,6 +120,96 @@ class NpcManager {
       stroke: "#0b141a",
       strokeThickness: 2,
     }).setOrigin(0.5).setDepth(depth + 2);
+  }
+
+  createTemporaryClassNpc(x, y, name, className = "archer") {
+    const scene = this.scene;
+    const depth = 32;
+    const visuals = [];
+    const waypoints = [
+      { x, y },
+      { x: x + 95, y: y - 48 },
+      { x: x + 170, y: y + 34 },
+      { x: x + 42, y: y + 82 },
+    ];
+    const shadow = scene.add.ellipse(x, y + 18, 30, 10, 0x000000, 0.24).setDepth(depth - 1);
+    const textureKey = `city_class_${className}_south`;
+    const body = scene.textures?.exists?.(textureKey)
+      ? scene.add.image(x, y, textureKey).setDisplaySize(42, 42).setDepth(depth)
+      : scene.add.rectangle(x, y, 22, 30, 0xd8b15c, 0.95).setDepth(depth);
+    const label = scene.add.text(x, y - 42, name, {
+      fontFamily: "Trebuchet MS, Arial, sans-serif",
+      fontSize: "11px",
+      color: "#f8f1dc",
+      align: "center",
+      stroke: "#0b141a",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(depth + 1);
+    visuals.push(shadow, body, label);
+    const interactable = {
+      x,
+      y,
+      name,
+      serviceType: "temporary_cakir",
+      radius: 72,
+      clickRadius: 78,
+      visuals,
+      patrol: {
+        className,
+        shadow,
+        body,
+        label,
+        waypoints,
+        targetIndex: 1,
+        speed: 42,
+        lastDir: new Phaser.Math.Vector2(0, 1),
+      },
+      onConfirm: () => scene.showCityBanner?.(name, "Geçici test NPC.", 1600),
+      getDialog: () => [`${name}: Şimdilik test için buradayım.`],
+    };
+    scene.interactables.push(interactable);
+  }
+
+  update() {
+    const scene = this.scene;
+    const delta = Math.min(0.05, (scene.game?.loop?.delta || 16) / 1000);
+    (scene.interactables || []).forEach((interactable) => {
+      if (!interactable?.patrol) return;
+      const patrol = interactable.patrol;
+      const target = patrol.waypoints[patrol.targetIndex] || patrol.waypoints[0];
+      const dir = new Phaser.Math.Vector2(target.x - interactable.x, target.y - interactable.y);
+      if (dir.lengthSq() <= 16) {
+        patrol.targetIndex = (patrol.targetIndex + 1) % patrol.waypoints.length;
+        return;
+      }
+      dir.normalize();
+      patrol.lastDir = dir.clone();
+      interactable.x += dir.x * patrol.speed * delta;
+      interactable.y += dir.y * patrol.speed * delta;
+      patrol.shadow?.setPosition(interactable.x, interactable.y + 18);
+      patrol.body?.setPosition(interactable.x, interactable.y);
+      patrol.label?.setPosition(interactable.x, interactable.y - 42);
+      const textureKey = `city_class_${patrol.className}_${this.getDirectionName(dir)}`;
+      if (scene.textures?.exists?.(textureKey) && patrol.body?.setTexture) {
+        try {
+          patrol.body.setTexture(textureKey).setDisplaySize(42, 42);
+        } catch (error) {
+          console.warn("[NpcManager] Çakır texture swap skipped:", textureKey, error);
+        }
+      }
+    });
+  }
+
+  getDirectionName(vec) {
+    const angle = Phaser.Math.RadToDeg(Math.atan2(vec?.y || 0, vec?.x || 1));
+    if (angle >= -22.5 && angle < 22.5) return "east";
+    if (angle >= 22.5 && angle < 67.5) return "south-east";
+    if (angle >= 67.5 && angle < 112.5) return "south";
+    if (angle >= 112.5 && angle < 157.5) return "south-west";
+    if (angle >= 157.5 || angle < -157.5) return "west";
+    if (angle >= -157.5 && angle < -112.5) return "north-west";
+    if (angle >= -112.5 && angle < -67.5) return "north";
+    return "north-east";
   }
 
 

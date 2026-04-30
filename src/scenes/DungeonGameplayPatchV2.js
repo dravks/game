@@ -205,6 +205,7 @@
     if (target) {
       if (profile.projectile) this.spawnRangedTrace?.(this.player.x, this.player.y - 12, target.x, target.y, skill.tint || profile.tint);
       this.damageEnemy(target, GS.getWeaponAp(this.registry) * (skill.damageScale || 1.25) * powerScale, damageType);
+      GS.applyDurabilityWear?.(this.registry, ["weapon"], 1, "dungeon skill");
     } else {
       this.showDamageText(this.player.x, this.player.y - 72, "MISS", "#dddddd");
     }
@@ -305,14 +306,16 @@
     for (let i = before; i < this.enemyPlaceholders.length; i++) {
       const enemy = this.enemyPlaceholders[i];
       if (enemy) enemy.attackRange = enemy.isBoss ? 140 : 108;
+      if (enemy && !enemy.isBoss) this.totalDungeonMobCount = (this.totalDungeonMobCount || 0) + 1;
+      if (enemy && enemy.isBoss) enemy.phasePlan = GS.getBossPhasePlan?.(this.selectedDungeonId || "default") || [];
       this.createEnemyHpBar(enemy);
     }
     return result;
   };
   const originalCreateKekon = proto.createKekon;
-  proto.createKekon = function (...args) { const r = originalCreateKekon.apply(this, args); this.createEnemyHpBar(this.enemyPlaceholders[this.enemyPlaceholders.length - 1]); return r; };
+  proto.createKekon = function (...args) { const r = originalCreateKekon.apply(this, args); this.totalDungeonMobCount = (this.totalDungeonMobCount || 0) + 1; this.createEnemyHpBar(this.enemyPlaceholders[this.enemyPlaceholders.length - 1]); return r; };
   const originalCreateKekonBoss = proto.createKekonBoss;
-  proto.createKekonBoss = function (...args) { const r = originalCreateKekonBoss.apply(this, args); const e = this.enemyPlaceholders[this.enemyPlaceholders.length - 1]; if (e) { e.isBoss = true; e.displayName = e.displayName || "Kekon Boss"; this.createEnemyHpBar(e); } return r; };
+  proto.createKekonBoss = function (...args) { const r = originalCreateKekonBoss.apply(this, args); const e = this.enemyPlaceholders[this.enemyPlaceholders.length - 1]; if (e) { e.isBoss = true; e.displayName = e.displayName || "Kekon Boss"; e.phasePlan = GS.getBossPhasePlan?.(this.selectedDungeonId || "default") || []; this.createEnemyHpBar(e); } return r; };
 
   proto.damageEnemy = function (enemy, amount, damageType = "physical") {
     const def = GS.getEnemyDefenseValue?.(enemy) || 0;
@@ -367,6 +370,7 @@
     this.victoryChestVisual = this.add.rectangle(chest.x, chest.y, 72, 48, 0x8b5a2b, 0.0).setStrokeStyle(3, 0xffd84a, 0).setDepth(7).setVisible(false);
     this.completionText = this.add.text(chest.x, chest.y - 62, "VICTORY CHEST", { fontSize: "18px", color: "#ffff00", stroke: "#000", strokeThickness: 3 }).setOrigin(0.5).setDepth(8).setVisible(false);
     this.interactables.push({ x: chest.x, y: chest.y, name: "Open Victory Chest", promptRadius: 110, active: false, onConfirm: () => {
+      if (this.canOpenVictoryChest && !this.canOpenVictoryChest()) return;
       const diff = this.selectedDifficulty || { gold: 1 };
       const goldGained = Math.floor((this.runRewards.gold || 0) * (diff.gold || 1));
       GS.updateQuestProgress?.(this.registry, { type: "clear", dungeonId: this.selectedDungeonId, difficulty: this.selectedDifficultyKey, amount: 1 });
@@ -379,7 +383,10 @@
     const x = bossRoom.x + 250, y = bossRoom.y;
     this.victoryChestVisual = this.add.rectangle(x, y, 72, 48, 0x8b5a2b, 0.0).setStrokeStyle(3, 0xffd84a, 0).setDepth(7).setVisible(false);
     this.completionText = this.add.text(x, y - 70, "VICTORY CHEST", { fontSize: "18px", color: "#ffff00", stroke: "#000", strokeThickness: 3 }).setOrigin(0.5).setDepth(8).setVisible(false);
-    this.interactables.push({ x, y, name: "Open Victory Chest", promptRadius: 100, active: false, onConfirm: () => this.openDungeonRewardPanel(this.runRewards.gold || 0) });
+    this.interactables.push({ x, y, name: "Open Victory Chest", promptRadius: 100, active: false, onConfirm: () => {
+      if (this.canOpenVictoryChest && !this.canOpenVictoryChest()) return;
+      this.openDungeonRewardPanel(this.runRewards.gold || 0);
+    }});
   };
 
   const originalDefeatEnemy = proto.defeatEnemy;
@@ -566,7 +573,11 @@
         this.togglePanel?.(map[key]);
         event.preventDefault();
       }
-      if ((event.key === "Enter" || event.key?.toLowerCase?.() === "e") && this.dungeonCleared && !this.rewardPanelOpen) {
+      if (key === "p") {
+        this.togglePet?.();
+        event.preventDefault();
+      }
+      if ((event.key === "Enter" || event.key?.toLowerCase?.() === "e") && this.canOpenVictoryChest?.() && !this.rewardPanelOpen) {
         const gold = Math.floor((this.runRewards?.gold || 0) * (this.selectedDifficulty?.gold || 1));
         this.openDungeonRewardPanel?.(gold);
         event.preventDefault();
@@ -619,7 +630,7 @@
       if (key && Phaser.Input.Keyboard.JustDown(key)) runSlot(this, index);
     });
 
-    if (this.dungeonCleared && !this.rewardPanelOpen) {
+    if (this.canOpenVictoryChest?.() && !this.rewardPanelOpen) {
       const openPressed = (this.actionKeys?.confirm && Phaser.Input.Keyboard.JustDown(this.actionKeys.confirm))
         || (this.actionKeys?.interact && Phaser.Input.Keyboard.JustDown(this.actionKeys.interact));
       if (openPressed) {
@@ -630,6 +641,8 @@
     }
 
     const result = previousUpdate.call(this);
+    this.updatePet?.();
+    this.updateMercenaryCompanion?.();
     updateEnemyRuntime(this);
     return result;
   };
@@ -647,7 +660,20 @@
   const previousOpenDungeonRewardPanel = proto.openDungeonRewardPanel;
   proto.openDungeonRewardPanel = function (goldGained = 0) {
     if (this.rewardPanelOpen) return previousOpenDungeonRewardPanel.call(this, goldGained);
+    const rewardPlan = GS.getDungeonChestRewardPlan?.({
+      kills: this.enemyDefeatCount || this.defeatedEnemyCount || 0,
+      total: this.totalDungeonMobCount || Math.max(1, this.enemyPlaceholders?.filter?.((enemy) => !enemy.isBoss).length || 1),
+      difficultyKey: this.selectedDifficultyKey || "normal",
+      baseTier: Math.max(1, Math.ceil((this.registry.get("playerLevel") || 1) / 2)),
+    }) || null;
+    if (rewardPlan) {
+      goldGained = Math.floor((goldGained || 0) * (rewardPlan.goldMultiplier || 1));
+      this.__dungeonRewardPlan = rewardPlan;
+    }
     if (!this.__bossGoldGranted) {
+      const cut = GS.applyMercenaryLootCut?.(this.registry, Math.max(0, goldGained || 0), "Dungeon Gold") || { playerAmount: Math.max(0, goldGained || 0), mercenaryAmount: 0 };
+      goldGained = cut.playerAmount || 0;
+      this.__mercenaryGoldCut = cut.mercenaryAmount || 0;
       this.registry.set("gold", (this.registry.get("gold") || 0) + Math.max(0, goldGained || 0));
       this.__bossGoldGranted = true;
     }
@@ -687,6 +713,18 @@
         .setScrollFactor(0).setDepth(2002);
       this.rewardPanelElements.push(materials);
     }
+    if (this.__dungeonRewardPlan && this.rewardPanelElements?.length) {
+      const { width, height } = this.scale;
+      const score = this.__dungeonRewardPlan.score || {};
+      const scoreLine = makeRewardText(this, width / 2, height / 2 + 98, `Clear Grade ${score.grade || "C"} | Chest Tier +${this.__dungeonRewardPlan.tier || 1}`, { fontSize: "12px", color: "#ffdf78" })
+        .setScrollFactor(0).setDepth(2002);
+      this.rewardPanelElements.push(scoreLine);
+      if (this.__mercenaryGoldCut) {
+        const mercLine = makeRewardText(this, width / 2, height / 2 + 116, `Mercenary Cut: -${this.__mercenaryGoldCut} Gold`, { fontSize: "11px", color: "#f4df9c" })
+          .setScrollFactor(0).setDepth(2002);
+        this.rewardPanelElements.push(mercLine);
+      }
+    }
     this.pendingTownReturn = {
       ...(this.pendingTownReturn || {}),
       cleared: true,
@@ -694,6 +732,7 @@
       dungeonId: this.selectedDungeonId,
       rewardItemName: item ? (GS.getItemDisplayName?.(item) || item.name) : "",
       materials: this.__bossMaterialsGranted || [],
+      clearGrade: this.__dungeonRewardPlan?.score?.grade || "",
     };
     GS.saveProgress?.(this.registry);
   };

@@ -708,56 +708,7 @@ window.GameState = {
     },
   },
 
-  CLASS_SKILL_DEFS: {
-    warrior: {
-      id: "skill_power_strike",
-      className: "warrior",
-      name: "Power Strike",
-      icon: "icon_05",
-      tint: 0xd98852,
-      key: "F",
-      mpCost: 10,
-      cooldownMs: 3500,
-      damageScale: 1.7,
-      description: "Heavy melee blow that crushes nearby enemies.",
-    },
-    mage: {
-      id: "skill_arcane_bolt",
-      className: "mage",
-      name: "Arcane Bolt",
-      icon: "icon_06",
-      tint: 0x77a9ff,
-      key: "F",
-      mpCost: 14,
-      cooldownMs: 3200,
-      damageScale: 1.4,
-      description: "Focused ranged spell that bursts on impact.",
-    },
-    rogue: {
-      id: "skill_shadow_step",
-      className: "rogue",
-      name: "Shadow Step",
-      icon: "icon_08",
-      tint: 0xae7cff,
-      key: "F",
-      mpCost: 12,
-      cooldownMs: 4200,
-      damageScale: 1.5,
-      description: "Blink forward and cut enemies in a short burst.",
-    },
-    archer: {
-      id: "skill_power_shot",
-      className: "archer",
-      name: "Power Shot",
-      icon: "icon_12",
-      tint: 0xd8b15c,
-      key: "F",
-      mpCost: 11,
-      cooldownMs: 3000,
-      damageScale: 1.35,
-      description: "A long-range empowered arrow with heavy impact.",
-    },
-  },
+  CLASS_SKILL_DEFS: {},
 
   CLASS_TRAINING_DEFS: {
     warrior: {
@@ -788,124 +739,7 @@ window.GameState = {
 
   EQUIP_SLOTS: ["head", "body", "hands", "legs", "weapon"],
 
-  CLASS_EQUIPMENT: {
-    warrior: {
-      head: [
-        { id: "war_helm_01", name: "Iron Helm", slot: "head", stats: { hp: 8 }, rarity: "common", baseIcon: "icon_01", baseColor: 0x8899aa, setId: "IronWill" },
-        { id: "war_helm_02", name: "Steel Helm", slot: "head", stats: { hp: 14, str: 1 }, rarity: "uncommon", baseIcon: "icon_01", baseColor: 0xaabbcc, setId: "IronWill" },
-        { id: "war_helm_03", name: "Knight Helm", slot: "head", stats: { hp: 20, str: 2, dex: -1 }, rarity: "rare", baseIcon: "icon_01", baseColor: 0xffd700, setId: "IronWill" },
-      ],
-      body: [
-        { id: "war_armor_01", name: "Leather Armor", slot: "body", stats: { hp: 12 }, rarity: "common", baseIcon: "icon_02", baseColor: 0x8b7355, setId: "IronWill" },
-        { id: "war_armor_02", name: "Chain Armor", slot: "body", stats: { hp: 22, str: 1 }, rarity: "uncommon", baseIcon: "icon_02", baseColor: 0xc0c0c0, setId: "IronWill" },
-        { id: "war_armor_03", name: "Plate Armor", slot: "body", stats: { hp: 32, str: 2, dex: -2 }, rarity: "rare", baseIcon: "icon_02", baseColor: 0xffd700, setId: "IronWill" },
-      ],
-      hands: [
-        { id: "war_glove_01", name: "Leather Gloves", slot: "hands", stats: { str: 2 }, rarity: "common", baseIcon: "icon_03", baseColor: 0x8b7355, setId: "IronWill" },
-        { id: "war_glove_02", name: "Gauntlets", slot: "hands", stats: { str: 4, dex: 1 }, rarity: "uncommon", baseIcon: "icon_03", baseColor: 0xa0a0a0, setId: "IronWill" },
-        { id: "war_glove_03", name: "Vanguard Grips", slot: "hands", stats: { str: 6, dex: 2 }, rarity: "rare", baseIcon: "icon_03", baseColor: 0xffd700, setId: "IronWill" },
-      ],
-      legs: [
-        { id: "war_boot_01", name: "Leather Boots", slot: "legs", stats: { dex: 2, hp: 4 }, rarity: "common", baseIcon: "icon_04", baseColor: 0x8b7355, setId: "IronWill" },
-        { id: "war_boot_02", name: "Steel Greaves", slot: "legs", stats: { dex: 3, hp: 8, str: 1 }, rarity: "uncommon", baseIcon: "icon_04", baseColor: 0xa0a0a0, setId: "IronWill" },
-        { id: "war_boot_03", name: "Knight Sabatons", slot: "legs", stats: { dex: 4, hp: 12, str: 2 }, rarity: "rare", baseIcon: "icon_04", baseColor: 0xffd700, setId: "IronWill" },
-      ],
-      weapon: [
-        { id: "war_sword_01", name: "Iron Sword", slot: "weapon", stats: { ap: 12, str: 0 }, rarity: "common", baseIcon: "icon_05", baseColor: 0xaaaaaa, rarityColorOffset: 0x000000 },
-        { id: "war_sword_02", name: "Steel Greatsword", slot: "weapon", stats: { ap: 18, str: 2, dex: -1 }, rarity: "uncommon", baseIcon: "icon_05", baseColor: 0xb0c4de, rarityColorOffset: 0x000000 },
-        { id: "war_sword_03", name: "Dark Steel Blade", slot: "weapon", stats: { ap: 24, str: 4, dex: -2 }, rarity: "rare", baseIcon: "icon_05", baseColor: 0x2f4f4f, rarityColorOffset: 0x000000 },
-        { id: "war_axe_01", name: "Battle Axe", slot: "weapon", stats: { ap: 20, str: 3 }, rarity: "uncommon", baseIcon: "icon_06", baseColor: 0x8b4513, rarityColorOffset: 0x000000 },
-        { id: "war_axe_02", name: "Greataxe", slot: "weapon", stats: { ap: 26, str: 5, dex: -3 }, rarity: "rare", baseIcon: "icon_06", baseColor: 0xcd853f, rarityColorOffset: 0x000000 },
-      ],
-    },
-    mage: {
-      head: [
-        { id: "mge_hat_01", name: "Wizard Hat", slot: "head", stats: { mp: 10, mpBonus: 5 }, icon: "icon_01", color: 0x9932cc, setId: "ArcaneFocus" },
-        { id: "mge_hat_02", name: "Sorcerer Hood", slot: "head", stats: { mp: 16, mpBonus: 8, hp: 4 }, icon: "icon_01", color: 0x4b0082, setId: "ArcaneFocus" },
-        { id: "mge_hat_03", name: "Archmage Crown", slot: "head", stats: { mp: 24, mpBonus: 12, str: 2 }, icon: "icon_01", color: 0xffd700, setId: "ArcaneFocus" },
-      ],
-      body: [
-        { id: "mge_robe_01", name: "Apprentice Robe", slot: "body", stats: { mp: 12, hp: 6 }, icon: "icon_02", color: 0x4682b4, setId: "ArcaneFocus" },
-        { id: "mge_robe_02", name: "Mage Robe", slot: "body", stats: { mp: 20, hp: 10, mpBonus: 5 }, icon: "icon_02", color: 0x6a5acd, setId: "ArcaneFocus" },
-        { id: "mge_robe_03", name: "Archmage Robe", slot: "body", stats: { mp: 30, hp: 14, mpBonus: 10, str: -2 }, icon: "icon_02", color: 0xffd700, setId: "ArcaneFocus" },
-      ],
-      hands: [
-        { id: "mge_glove_01", name: "Apprentice Gloves", slot: "hands", stats: { mp: 6, dex: 1 }, icon: "icon_03", color: 0x87ceeb, setId: "ArcaneFocus" },
-        { id: "mge_glove_02", name: "Mage Gauntlets", slot: "hands", stats: { mp: 10, dex: 2, str: -1 }, icon: "icon_03", color: 0x9370db, setId: "ArcaneFocus" },
-        { id: "mge_glove_03", name: "Focus Gloves", slot: "hands", stats: { mp: 14, dex: 3, str: -2, ap: 4 }, icon: "icon_03", color: 0xffd700, setId: "ArcaneFocus" },
-      ],
-      legs: [
-        { id: "mge_boot_01", name: "Apprentice Boots", slot: "legs", stats: { dex: 2, mp: 4 }, icon: "icon_04", color: 0x87ceeb, setId: "ArcaneFocus" },
-        { id: "mge_boot_02", name: "Mage Boots", slot: "legs", stats: { dex: 4, mp: 6 }, icon: "icon_04", color: 0x9370db, setId: "ArcaneFocus" },
-        { id: "mge_boot_03", name: "Sorcerer Boots", slot: "legs", stats: { dex: 6, mp: 8, hp: 2 }, icon: "icon_04", color: 0xffd700, setId: "ArcaneFocus" },
-      ],
-      weapon: [
-        { id: "mge_staff_01", name: "Oak Staff", slot: "weapon", stats: { ap: 15, mpBonus: 5 }, icon: "icon_12", color: 0x8b4513 },
-        { id: "mge_staff_02", name: "Crystal Staff", slot: "weapon", stats: { ap: 22, mpBonus: 10, str: -2 }, icon: "icon_12", color: 0x00ced1 },
-        { id: "mge_staff_03", name: "Arcane Catalyst", slot: "weapon", stats: { ap: 28, mpBonus: 15, str: -3, dex: 2 }, icon: "icon_12", color: 0xffd700 },
-        { id: "mge_wand_01", name: "Magic Wand", slot: "weapon", stats: { ap: 18, mpBonus: 8 }, icon: "icon_06", color: 0xdaa520 },
-        { id: "mge_wand_02", name: "Eldritch Wand", slot: "weapon", stats: { ap: 24, mpBonus: 12, dex: 2 }, icon: "icon_06", color: 0x9932cc },
-      ],
-    },
-    rogue: {
-      head: [
-        { id: "rog_hood_01", name: "Leather Hood", slot: "head", stats: { dex: 4, hp: 3 }, icon: "icon_01", color: 0x2f4f4f, setId: "ShadowStep" },
-        { id: "rog_hood_02", name: "Assassin Hood", slot: "head", stats: { dex: 7, hp: 2, str: 1 }, icon: "icon_01", color: 0x1a1a1a, setId: "ShadowStep" },
-        { id: "rog_hood_03", name: "Shadow Veil", slot: "head", stats: { dex: 10, mp: 5, str: 2 }, icon: "icon_01", color: 0x800080, setId: "ShadowStep" },
-      ],
-      body: [
-        { id: "rog_armor_01", name: "Leather Jacket", slot: "body", stats: { dex: 5, hp: 8 }, icon: "icon_02", color: 0x8b4513, setId: "ShadowStep" },
-        { id: "rog_armor_02", name: "Shadow Garb", slot: "body", stats: { dex: 9, hp: 12, str: 1 }, icon: "icon_02", color: 0x2f4f4f, setId: "ShadowStep" },
-        { id: "rog_armor_03", name: "Ninja Gi", slot: "body", stats: { dex: 13, hp: 6, str: 2, mp: 4 }, icon: "icon_02", color: 0x1a1a1a, setId: "ShadowStep" },
-      ],
-      hands: [
-        { id: "rog_glove_01", name: "Leather Grips", slot: "hands", stats: { dex: 3, str: 1 }, icon: "icon_03", color: 0x8b4513, setId: "ShadowStep" },
-        { id: "rog_glove_02", name: "Assassin's Bracers", slot: "hands", stats: { dex: 6, str: 2, ap: 2 }, icon: "icon_03", color: 0x1a1a1a, setId: "ShadowStep" },
-        { id: "rog_glove_03", name: "Blade Wraps", slot: "hands", stats: { dex: 9, str: 3, ap: 4 }, icon: "icon_03", color: 0xff4500, setId: "ShadowStep" },
-      ],
-      legs: [
-        { id: "rog_boot_01", name: "Leather Treads", slot: "legs", stats: { dex: 4, hp: 2 }, icon: "icon_04", color: 0x8b4513, setId: "ShadowStep" },
-        { id: "rog_boot_02", name: "Shadow Steps", slot: "legs", stats: { dex: 8, hp: 4, mp: 2 }, icon: "icon_04", color: 0x2f4f4f, setId: "ShadowStep" },
-        { id: "rog_boot_03", name: "Swift Slippers", slot: "legs", stats: { dex: 12, hp: 6, mp: 4 }, icon: "icon_04", color: 0xffd700, setId: "ShadowStep" },
-      ],
-      weapon: [
-        { id: "rog_dagger_01", name: "Iron Dagger", slot: "weapon", stats: { ap: 10, dex: 2 }, icon: "icon_08", color: 0xaaaaaa },
-        { id: "rog_dagger_02", name: "Poisoned Dagger", slot: "weapon", stats: { ap: 14, dex: 4, str: 1 }, icon: "icon_08", color: 0x228b22 },
-        { id: "rog_dagger_03", name: "Void Dagger", slot: "weapon", stats: { ap: 18, dex: 6, str: 2, mp: 4 }, icon: "icon_08", color: 0x800080 },
-        { id: "rog_knife_01", name: "Throwing Knives", slot: "weapon", stats: { ap: 12, dex: 5 }, icon: "icon_07", color: 0x696969 },
-        { id: "rog_knife_02", name: "Shadow Blades", slot: "weapon", stats: { ap: 16, dex: 8, str: 1 }, icon: "icon_07", color: 0x1a1a1a },
-      ],
-    },
-    archer: {
-      head: [
-        { id: "arc_hood_01", name: "Huntress Hood", slot: "head", stats: { dex: 4, mp: 3 }, icon: "icon_01", color: 0x556b2f, setId: "Marksman" },
-        { id: "arc_hood_02", name: "Sniper's Cowl", slot: "head", stats: { dex: 7, mp: 5, str: 1 }, icon: "icon_01", color: 0x2f4f4f, setId: "Marksman" },
-        { id: "arc_hood_03", name: "Hawkeye Veil", slot: "head", stats: { dex: 10, mp: 8, str: 2, ap: 2 }, icon: "icon_01", color: 0xffd700, setId: "Marksman" },
-      ],
-      body: [
-        { id: "arc_armor_01", name: "Hunter Tunic", slot: "body", stats: { dex: 5, hp: 6 }, icon: "icon_02", color: 0x556b2f, setId: "Marksman" },
-        { id: "arc_armor_02", name: "Ranger Jacket", slot: "body", stats: { dex: 9, hp: 10, mp: 3 }, icon: "icon_02", color: 0x228b22, setId: "Marksman" },
-        { id: "arc_armor_03", name: "Marksman Vest", slot: "body", stats: { dex: 13, hp: 14, mp: 6, str: 1 }, icon: "icon_02", color: 0xffd700, setId: "Marksman" },
-      ],
-      hands: [
-        { id: "arc_glove_01", name: "Leather Wraps", slot: "hands", stats: { dex: 3, str: 1 }, icon: "icon_03", color: 0x8b4513, setId: "Marksman" },
-        { id: "arc_glove_02", name: "Archer's Gauntlets", slot: "hands", stats: { dex: 6, str: 2, ap: 2 }, icon: "icon_03", color: 0x556b2f, setId: "Marksman" },
-        { id: "arc_glove_03", name: "Sniper's Gloves", slot: "hands", stats: { dex: 9, str: 3, ap: 4, mp: 2 }, icon: "icon_03", color: 0xffd700, setId: "Marksman" },
-      ],
-      legs: [
-        { id: "arc_boot_01", name: "Hunter Boots", slot: "legs", stats: { dex: 4, hp: 2 }, icon: "icon_04", color: 0x556b2f, setId: "Marksman" },
-        { id: "arc_boot_02", name: "Ranger Greaves", slot: "legs", stats: { dex: 8, hp: 4, mp: 2 }, icon: "icon_04", color: 0x228b22, setId: "Marksman" },
-        { id: "arc_boot_03", name: "Marksman Sabatons", slot: "legs", stats: { dex: 12, hp: 6, mp: 4, ap: 2 }, icon: "icon_04", color: 0xffd700, setId: "Marksman" },
-      ],
-      weapon: [
-        { id: "arc_bow_01", name: "Short Bow", slot: "weapon", stats: { ap: 14, dex: 2 }, icon: "icon_06", color: 0x8b4513 },
-        { id: "arc_bow_02", name: "Long Bow", slot: "weapon", stats: { ap: 20, dex: 4, str: 1 }, icon: "icon_06", color: 0xdaa520 },
-        { id: "arc_bow_03", name: "Composite Bow", slot: "weapon", stats: { ap: 26, dex: 6, str: 2, mp: 3 }, icon: "icon_06", color: 0xffd700 },
-        { id: "arc_cross_01", name: "Crossbow", slot: "weapon", stats: { ap: 22, str: 3, dex: 2 }, icon: "icon_07", color: 0x696969 },
-        { id: "arc_cross_02", name: "Arbalest", slot: "weapon", stats: { ap: 28, str: 5, dex: 3, hp: 5 }, icon: "icon_07", color: 0x2f4f4f },
-      ],
-    },
-  },
+  CLASS_EQUIPMENT: {},
 
   RANDOM_NAMES: [
     "Aragorn", "Legolas", "Gimli", "Frodo", "Gandalf", "Aerith", "Cloud", "Tifa",
@@ -914,60 +748,15 @@ window.GameState = {
     "Kael", "Rys", "Vega", "Nyx", "Zara", "Jin", "Rin", "Yuki", "Kira", "Sora",
   ],
 
-  RARITY_NAMES: {
-    common: { name: "Common", star: 1, color: 0xc0c0c0 },
-    uncommon: { name: "Uncommon", star: 2, color: 0x00ff00 },
-    rare: { name: "Rare", star: 3, color: 0x0088ff },
-    epic: { name: "Epic", star: 4, color: 0x9933ff },
-    legendary: { name: "Legendary", star: 5, color: 0xffaa00 },
-  },
+  RARITY_NAMES: {},
 
-  ITEM_RARITY_DISTRIBUTION: {
-    common: 60,
-    uncommon: 25,
-    rare: 10,
-    epic: 4,
-    legendary: 1,
-  },
+  ITEM_RARITY_DISTRIBUTION: {},
 
-  SET_BONUSES: {
-    IronWill: {
-      name: "Iron Will",
-      pieces: { head: true, body: true, hands: true, legs: true },
-      bonuses: [
-        { pieces: 2, effect: "HP +20" },
-        { pieces: 4, effect: "HP +40, Damage Reduction 5%" },
-      ],
-    },
-    ArcaneFocus: {
-      name: "Arcane Focus",
-      pieces: { head: true, body: true, hands: true, legs: true },
-      bonuses: [
-        { pieces: 2, effect: "MP +15" },
-        { pieces: 4, effect: "MP +30, Spell Damage +8%" },
-      ],
-    },
-    ShadowStep: {
-      name: "Shadow Step",
-      pieces: { head: true, body: true, hands: true, legs: true },
-      bonuses: [
-        { pieces: 2, effect: "Speed +5%" },
-        { pieces: 4, effect: "Speed +10%, Crit Chance +8%" },
-      ],
-    },
-    Marksman: {
-      name: "Marksman",
-      pieces: { head: true, body: true, hands: true, legs: true },
-      bonuses: [
-        { pieces: 2, effect: "AP +3" },
-        { pieces: 4, effect: "AP +6, Attack Speed +7%" },
-      ],
-    },
-  },
+  SET_BONUSES: {},
 
   generateItemRarity() {
-    const roll = Phaser.Math.Between(1, 100);
-    const dist = this.ITEM_RARITY_DISTRIBUTION;
+    const roll = window.Phaser?.Math?.Between ? window.Phaser.Math.Between(1, 100) : Math.ceil(Math.random() * 100);
+    const dist = window.ItemDatabase?.ITEM_RARITY_DISTRIBUTION || this.ITEM_RARITY_DISTRIBUTION || {};
     if (roll <= dist.legendary) return "legendary";
     if (roll <= dist.legendary + dist.epic) return "epic";
     if (roll <= dist.legendary + dist.epic + dist.rare) return "rare";
@@ -976,7 +765,8 @@ window.GameState = {
   },
 
   getRarityColor(rarity) {
-    return this.RARITY_NAMES[rarity]?.color || 0xffffff;
+    const rarityNames = window.ItemDatabase?.RARITY_NAMES || this.RARITY_NAMES || {};
+    return rarityNames[rarity]?.color || 0xffffff;
   },
 
   ITEM_STAT_LABELS: {
@@ -1018,7 +808,8 @@ window.GameState = {
     }
 
     const resolvedRarity = rarity || this.getTemplateRarity(item);
-    const rarityInfo = this.RARITY_NAMES[resolvedRarity] || this.RARITY_NAMES.common;
+    const rarityNames = window.ItemDatabase?.RARITY_NAMES || this.RARITY_NAMES || {};
+    const rarityInfo = rarityNames[resolvedRarity] || rarityNames.common || { color: 0xc0c0c0 };
     return this.blendRarityColor(item.baseColor || 0xaaaaaa, rarityInfo.color, 0.3);
   },
 
@@ -1028,12 +819,13 @@ window.GameState = {
     }
 
     const rarity = rarityOverride || this.getTemplateRarity(template);
-    const rarityInfo = this.RARITY_NAMES[rarity] || this.RARITY_NAMES.common;
+    const rarityNames = window.ItemDatabase?.RARITY_NAMES || this.RARITY_NAMES || {};
+    const rarityInfo = rarityNames[rarity] || rarityNames.common || { star: 1, color: 0xc0c0c0 };
 
     return {
       ...template,
       rarity,
-      starCount: rarityInfo.star,
+      starCount: rarityInfo.star || 1,
       color: this.getItemDisplayColor(template, rarity),
     };
   },
@@ -1362,7 +1154,7 @@ window.GameState = {
 
     const activeBonuses = [];
     Object.entries(setCounts).forEach(([setId, count]) => {
-      const setDef = this.SET_BONUSES[setId];
+      const setDef = (window.ItemDatabase?.SET_BONUSES || this.SET_BONUSES || {})[setId];
       if (!setDef) return;
 
       setDef.bonuses.forEach((bonus) => {
@@ -1397,9 +1189,9 @@ window.GameState = {
       drops: [
         { id: "healthPotion", weight: 40, count: [1, 1] },
         { id: null, weight: 45 },
-        { id: "war_helm_01", weight: 5 },
-        { id: "war_glove_01", weight: 5 },
-        { id: "war_boot_01", weight: 5 },
+        { id: "war_head_01", weight: 5 },
+        { id: "war_hands_01", weight: 5 },
+        { id: "war_legs_01", weight: 5 },
       ],
     },
     kekon_warrior: {
@@ -1408,10 +1200,10 @@ window.GameState = {
       drops: [
         { id: "healthPotion", weight: 25, count: [1, 2] },
         { id: null, weight: 35 },
-        { id: "war_armor_01", weight: 10 },
-        { id: "war_glove_02", weight: 10 },
-        { id: "war_sword_02", weight: 10 },
-        { id: "arc_bow_01", weight: 5 },
+        { id: "war_body_01", weight: 10 },
+        { id: "war_hands_02", weight: 10 },
+        { id: "war_weapon_02", weight: 10 },
+        { id: "arc_weapon_01", weight: 5 },
       ],
     },
     kekon_shaman: {
@@ -1420,9 +1212,9 @@ window.GameState = {
       drops: [
         { id: "mpPotion", weight: 26, count: [1, 2] },
         { id: null, weight: 30 },
-        { id: "mge_hat_02", weight: 9, rarity: "uncommon" },
-        { id: "mge_staff_02", weight: 8, rarity: "uncommon" },
-        { id: "rog_dagger_02", weight: 6, rarity: "uncommon" },
+        { id: "mge_head_02", weight: 9, rarity: "uncommon" },
+        { id: "mge_weapon_02", weight: 8, rarity: "uncommon" },
+        { id: "rog_weapon_02", weight: 6, rarity: "uncommon" },
       ],
     },
     kekon_brute: {
@@ -1431,9 +1223,9 @@ window.GameState = {
       drops: [
         { id: "healthPotion", weight: 30, count: [1, 2] },
         { id: null, weight: 18 },
-        { id: "war_armor_02", weight: 10, rarity: "uncommon" },
-        { id: "war_axe_01", weight: 10, rarity: "uncommon" },
-        { id: "arc_cross_01", weight: 6, rarity: "uncommon" },
+        { id: "war_body_02", weight: 10, rarity: "uncommon" },
+        { id: "war_weapon_03", weight: 10, rarity: "uncommon" },
+        { id: "arc_weapon_03", weight: 6, rarity: "uncommon" },
       ],
     },
     kekon_boss: {
@@ -1443,11 +1235,11 @@ window.GameState = {
       drops: [
         { id: "healthPotion", weight: 10, count: [2, 3] },
         { id: null, weight: 10 },
-        { id: "war_armor_03", weight: 12, rarity: "rare" },
-        { id: "war_sword_03", weight: 12, rarity: "rare" },
-        { id: "mge_staff_03", weight: 12, rarity: "rare" },
-        { id: "rog_dagger_03", weight: 12, rarity: "rare" },
-        { id: "arc_bow_03", weight: 12, rarity: "rare" },
+        { id: "war_body_03", weight: 12, rarity: "rare" },
+        { id: "war_weapon_03", weight: 12, rarity: "rare" },
+        { id: "mge_weapon_03", weight: 12, rarity: "rare" },
+        { id: "rog_weapon_03", weight: 12, rarity: "rare" },
+        { id: "arc_weapon_03", weight: 12, rarity: "rare" },
         { id: "legendaryFragment", weight: 8, count: [1, 2] },
       ],
     },
@@ -1460,31 +1252,31 @@ window.GameState = {
           baseGold: [10, 18],
           drops: [
             { id: "healthPotion", weight: 34, count: [1, 1] },
-            { id: "war_glove_02", weight: 9 },
-            { id: "rog_glove_02", weight: 7 },
+            { id: "war_hands_02", weight: 9 },
+            { id: "rog_hands_02", weight: 7 },
           ],
         },
         kekon_warrior: {
           baseGold: [18, 32],
           drops: [
-            { id: "war_armor_02", weight: 9, rarity: "uncommon" },
-            { id: "war_axe_01", weight: 8, rarity: "uncommon" },
-            { id: "arc_cross_01", weight: 6, rarity: "uncommon" },
+            { id: "war_body_02", weight: 9, rarity: "uncommon" },
+            { id: "war_weapon_03", weight: 8, rarity: "uncommon" },
+            { id: "arc_weapon_03", weight: 6, rarity: "uncommon" },
           ],
         },
         kekon_shaman: {
           baseGold: [20, 34],
           drops: [
             { id: "healthPotion", weight: 20, count: [1, 1] },
-            { id: "war_axe_01", weight: 7, rarity: "uncommon" },
-            { id: "rog_glove_02", weight: 7, rarity: "uncommon" },
+            { id: "war_weapon_03", weight: 7, rarity: "uncommon" },
+            { id: "rog_hands_02", weight: 7, rarity: "uncommon" },
           ],
         },
         kekon_brute: {
           baseGold: [30, 50],
           drops: [
-            { id: "war_armor_03", weight: 10, rarity: "rare" },
-            { id: "war_axe_02", weight: 10, rarity: "rare" },
+            { id: "war_body_03", weight: 10, rarity: "rare" },
+            { id: "war_weapon_04", weight: 10, rarity: "rare" },
             { id: "legendaryFragment", weight: 6, count: [1, 1] },
           ],
         },
@@ -1492,9 +1284,9 @@ window.GameState = {
           baseGold: [70, 120],
           guaranteed: [{ id: "dungeonKey", count: [1, 1] }],
           drops: [
-            { id: "war_armor_03", weight: 16, rarity: "rare" },
-            { id: "war_axe_02", weight: 14, rarity: "rare" },
-            { id: "rog_glove_03", weight: 12, rarity: "rare" },
+            { id: "war_body_03", weight: 16, rarity: "rare" },
+            { id: "war_weapon_04", weight: 14, rarity: "rare" },
+            { id: "rog_hands_03", weight: 12, rarity: "rare" },
             { id: "legendaryFragment", weight: 10, count: [1, 2] },
           ],
         },
@@ -1504,31 +1296,31 @@ window.GameState = {
           baseGold: [9, 16],
           drops: [
             { id: "mpPotion", weight: 28, count: [1, 1] },
-            { id: "mge_boot_01", weight: 7 },
-            { id: "arc_hood_01", weight: 7 },
+            { id: "mge_legs_01", weight: 7 },
+            { id: "arc_head_01", weight: 7 },
           ],
         },
         kekon_warrior: {
           baseGold: [18, 30],
           drops: [
-            { id: "mge_staff_02", weight: 8, rarity: "uncommon" },
-            { id: "arc_bow_02", weight: 8, rarity: "uncommon" },
-            { id: "mge_robe_02", weight: 8, rarity: "uncommon" },
+            { id: "mge_weapon_02", weight: 8, rarity: "uncommon" },
+            { id: "arc_weapon_02", weight: 8, rarity: "uncommon" },
+            { id: "mge_body_02", weight: 8, rarity: "uncommon" },
           ],
         },
         kekon_shaman: {
           baseGold: [20, 34],
           drops: [
             { id: "mpPotion", weight: 32, count: [1, 2] },
-            { id: "mge_robe_02", weight: 8, rarity: "uncommon" },
-            { id: "mge_staff_02", weight: 8, rarity: "uncommon" },
+            { id: "mge_body_02", weight: 8, rarity: "uncommon" },
+            { id: "mge_weapon_02", weight: 8, rarity: "uncommon" },
           ],
         },
         kekon_brute: {
           baseGold: [28, 46],
           drops: [
-            { id: "arc_bow_02", weight: 9, rarity: "uncommon" },
-            { id: "mge_robe_03", weight: 7, rarity: "rare" },
+            { id: "arc_weapon_02", weight: 9, rarity: "uncommon" },
+            { id: "mge_body_03", weight: 7, rarity: "rare" },
             { id: "legendaryFragment", weight: 5, count: [1, 1] },
           ],
         },
@@ -1536,9 +1328,9 @@ window.GameState = {
           baseGold: [72, 124],
           guaranteed: [{ id: "dungeonKey", count: [1, 1] }],
           drops: [
-            { id: "mge_staff_03", weight: 15, rarity: "rare" },
-            { id: "arc_bow_03", weight: 15, rarity: "rare" },
-            { id: "mge_robe_03", weight: 13, rarity: "rare" },
+            { id: "mge_weapon_03", weight: 15, rarity: "rare" },
+            { id: "arc_weapon_03", weight: 15, rarity: "rare" },
+            { id: "mge_body_03", weight: 13, rarity: "rare" },
             { id: "legendaryFragment", weight: 11, count: [1, 2] },
           ],
         },
@@ -1606,7 +1398,7 @@ window.GameState = {
 
     const playerClass = registry.get("playerClass") || this.DEFAULT_CLASS;
     const currentSkill = this.getClassSkillForClass(playerClass);
-    const classSkillIds = new Set(Object.values(this.CLASS_SKILL_DEFS).map((skill) => skill.id));
+    const classSkillIds = new Set(Object.values(window.SkillDatabase?.CLASS_SKILL_DEFS || this.CLASS_SKILL_DEFS || {}).map((skill) => skill.id));
 
     slots = slots.map((slotId) => (classSkillIds.has(slotId) && slotId !== currentSkill?.id ? null : slotId));
 
@@ -1648,11 +1440,11 @@ window.GameState = {
   },
 
   getClassSkillForClass(className) {
-    return this.CLASS_SKILL_DEFS[className] || this.CLASS_SKILL_DEFS[this.DEFAULT_CLASS];
+    return window.SkillDatabase?.getPrimarySkill?.(className || this.DEFAULT_CLASS) || this.CLASS_SKILL_DEFS[className] || this.CLASS_SKILL_DEFS[this.DEFAULT_CLASS] || null;
   },
 
   getClassSkillDef(itemId) {
-    return Object.values(this.CLASS_SKILL_DEFS).find((skill) => skill.id === itemId) || null;
+    return window.SkillDatabase?.getSkillById?.(itemId) || Object.values(this.CLASS_SKILL_DEFS || {}).find((skill) => skill.id === itemId) || null;
   },
 
   isClassSkillItem(itemId) {
@@ -1672,33 +1464,14 @@ window.GameState = {
   },
 
   getEquipmentTemplateById(itemId) {
-    for (const className of Object.keys(this.CLASS_EQUIPMENT)) {
-      const slotMap = this.CLASS_EQUIPMENT[className];
-      for (const slotName of Object.keys(slotMap)) {
-        const found = slotMap[slotName].find((item) => item.id === itemId);
-        if (found) {
-          return { ...found };
-        }
-      }
-    }
-    return null;
+    return window.ItemDatabase?.getEquipmentTemplateById?.(itemId) || null;
   },
 
   pickRandomEquipment(className, slot) {
-    const list = this.CLASS_EQUIPMENT[className]?.[slot];
-    if (!list || list.length === 0) {
-      return null;
-    }
-    const baseItem = list[Phaser.Math.Between(0, list.length - 1)];
-    const rarity = this.generateItemRarity();
-    const rarityInfo = this.RARITY_NAMES[rarity];
-
-    return {
-      ...baseItem,
-      rarity,
-      starCount: rarityInfo.star,
-      color: this.blendRarityColor(baseItem.baseColor || baseItem.color || 0xaaaaaa, rarityInfo.color, 0.3),
-    };
+    const tier = window.Phaser?.Math?.Between ? window.Phaser.Math.Between(1, 2) : 1;
+    const baseItem = window.ItemDatabase?.pickClassEquipmentByTier?.(className, slot, tier);
+    if (!baseItem) return null;
+    return this.createInventoryItemFromTemplate(baseItem, baseItem.rarity || this.generateItemRarity());
   },
 
   blendRarityColor(baseColor, rarityColor, factor) {
@@ -1749,6 +1522,7 @@ window.GameState = {
     registry.set("gold", 25);
     registry.set("dungeonCycles", 0);
     registry.set("questState", "not_accepted");
+    registry.set("questStates", {});
     registry.set("repeatObjectiveState", "inactive");
     registry.set("repeatObjectiveCompletions", 0);
     registry.set("repeatObjectiveProgress", 0);
@@ -1928,11 +1702,10 @@ window.GameState = {
       // Create initial inventory with some test items (Knight Online style)
       const items = new Array(20).fill(null);
       
-      // Add some starting items
       items[0] = { id: "hpPotion", name: "Health Potion", type: "potion", count: 3, icon: "icon_08", baseIcon: "icon_08", color: 0xd67272, rarity: "common" };
       items[1] = { id: "mpPotion", name: "Mana Potion", type: "potion", count: 2, icon: "icon_10", baseIcon: "icon_10", color: 0x5588ff, rarity: "common" };
-      items[2] = { id: "war_helm_01", name: "Iron Helm", slot: "head", type: "armor", stats: { hp: 8 }, rarity: "common", baseIcon: "icon_01", color: 0x8899aa };
-      items[3] = { id: "war_sword_01", name: "Iron Sword", slot: "weapon", type: "weapon", stats: { ap: 12 }, rarity: "common", baseIcon: "icon_05", color: 0xaaaaaa };
+      items[2] = this.createInventoryItemFromTemplate(window.ItemDatabase?.getEquipmentTemplateById?.("war_head_01"), "common");
+      items[3] = this.createInventoryItemFromTemplate(window.ItemDatabase?.getEquipmentTemplateById?.("war_weapon_01"), "common");
       
       registry.set("inventoryItems", items);
     }

@@ -25,6 +25,8 @@
   GS.assignToHotbar = function (registry, itemId, index) { return this.setHotbarSlot(registry, index, itemId); };
 
   GS.getSkillDefById = function (skillId, playerClass = null) {
+    const fromDb = window.SkillDatabase?.getSkillById?.(skillId, playerClass);
+    if (fromDb) return fromDb;
     const classes = this.CLASS_LEVEL_SKILLS || {};
     const classKeys = playerClass ? [String(playerClass).toLowerCase()] : Object.keys(classes);
     for (const key of classKeys) {

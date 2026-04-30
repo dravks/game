@@ -122,6 +122,7 @@
     const chest = (template.layers?.chest || [])[0] || (template.layers?.boss_spawn || [])[0] || { x: (template.width || 3200) - 300, y: template.playerSpawn?.y || 600 };
     this.completionText = this.add.text(chest.x, chest.y - 60, "VICTORY CHEST", { fontSize: "18px", color: "#ffff00" }).setOrigin(0.5).setDepth(7).setVisible(false);
     this.interactables.push({ x: chest.x, y: chest.y, name: "Claim Victory", promptRadius: 100, active: false, onConfirm: () => {
+      if (this.canOpenVictoryChest && !this.canOpenVictoryChest()) return;
       this.isTransitioningOut = true;
       const diff = this.selectedDifficulty || { gold: 1 };
       const goldGained = Math.floor((this.runRewards.gold || 0) * (diff.gold || 1));

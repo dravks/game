@@ -6,12 +6,18 @@ class PlayerManager {
   createPlayer(x, y) {
     const scene = this.scene;
     
-    scene.player = scene.physics.add.sprite(x, y, "player_idle_sheet")
-      .setScale(0.35)
+    const classTexture = scene.getClassPlayerTextureKey?.(new Phaser.Math.Vector2(0, 1));
+    scene.player = scene.physics.add.sprite(x, y, classTexture || "player_idle_sheet")
+      .setScale(classTexture ? 1 : 0.35)
       .setDepth(10);
     
-    scene.player.body.setSize(40, 40).setOffset(76, 120);
-    scene.player.play("player-idle");
+    if (classTexture) {
+      scene.player.setDisplaySize(46, 46);
+      scene.player.body.setSize(30, 30).setOffset(8, 8);
+    } else {
+      scene.player.body.setSize(40, 40).setOffset(76, 120);
+      scene.player.play("player-idle");
+    }
     
     // Add collision with obstacles
     if (scene.obstacles) {

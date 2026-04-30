@@ -1,0 +1,88 @@
+(function () {
+  window.OverworldFieldData = {
+    zones: [
+      {
+        id: "gate_grass",
+        name: "Gate Grass",
+        count: 14,
+        x: [780, 1540],
+        y: [760, 1660],
+        dropTier: 1,
+        variants: [
+          { name: "Tiny Slime", family: "slime", level: 1, spriteVariant: 1, hp: 42, attack: 4, defense: 1, speed: 44, xp: 10, gold: [2, 5], scale: 0.62, tint: 0x9dff95 },
+          { name: "Green Slime", family: "slime", level: 2, spriteVariant: 1, hp: 58, attack: 6, defense: 2, speed: 47, xp: 16, gold: [4, 8], scale: 0.7, tint: 0x78e56a },
+        ],
+      },
+      {
+        id: "goblin_camp",
+        name: "Goblin Camp",
+        count: 12,
+        x: [1380, 1980],
+        y: [620, 1180],
+        dropTier: 3,
+        variants: [
+          { name: "Goblin Scout", family: "goblin", level: 3, spriteVariant: 2, hp: 86, attack: 9, defense: 3, speed: 54, xp: 28, gold: [7, 13], scale: 0.76, tint: 0xa8d35f, rangedResist: 0.04 },
+          { name: "Goblin Cutter", family: "goblin", level: 4, spriteVariant: 2, hp: 116, attack: 12, defense: 5, speed: 48, xp: 38, gold: [10, 18], scale: 0.86, tint: 0x83b447, physicalResist: 0.06 },
+        ],
+      },
+      {
+        id: "wolf_woods",
+        name: "Wolf Woods",
+        count: 13,
+        x: [2140, 2820],
+        y: [470, 1150],
+        dropTier: 4,
+        variants: [
+          { name: "Young Wolf", family: "wolf", level: 4, spriteVariant: 2, hp: 126, attack: 13, defense: 5, speed: 64, xp: 42, gold: [10, 20], scale: 0.82, tint: 0xb9c5c8, rangedResist: 0.08 },
+          { name: "Grey Wolf", family: "wolf", level: 5, spriteVariant: 3, hp: 158, attack: 16, defense: 7, speed: 62, xp: 54, gold: [14, 26], scale: 0.9, tint: 0x9aa4a6, physicalResist: 0.08 },
+        ],
+      },
+      {
+        id: "mine_mouth",
+        name: "Mine Mouth",
+        count: 12,
+        x: [2700, 3260],
+        y: [1260, 1760],
+        dropTier: 5,
+        variants: [
+          { name: "Cave Imp", family: "imp", level: 5, spriteVariant: 3, hp: 168, attack: 17, defense: 8, speed: 46, xp: 60, gold: [16, 31], scale: 0.9, tint: 0xc38c5a, physicalResist: 0.1 },
+          { name: "Stone Imp", family: "imp", level: 6, spriteVariant: 3, hp: 212, attack: 19, defense: 11, speed: 40, xp: 74, gold: [20, 38], scale: 1, tint: 0x9d8a75, physicalResist: 0.16, magicResist: 0.04 },
+        ],
+      },
+      {
+        id: "king_slime_nest",
+        name: "King Slime Nest",
+        count: 16,
+        x: [3400, 4300],
+        y: [680, 1640],
+        dropTier: 6,
+        variants: [
+          { name: "Forest Slime", family: "slime", level: 6, spriteVariant: 3, hp: 190, attack: 19, defense: 9, speed: 45, xp: 72, gold: [18, 34], scale: 0.94, tint: 0x65d36d, physicalResist: 0.08, magicResist: 0.04 },
+          { name: "Mud Slime", family: "slime", level: 7, spriteVariant: 3, hp: 228, attack: 21, defense: 12, speed: 38, xp: 90, gold: [22, 42], scale: 1.02, tint: 0xa2784a, physicalResist: 0.12 },
+        ],
+      },
+    ],
+    miniBoss: {
+      name: "King Slime",
+      id: "king_slime",
+      family: "slime",
+      level: 8,
+      spriteVariant: 3,
+      hp: 680,
+      attack: 30,
+      defense: 16,
+      speed: 36,
+      xp: 260,
+      gold: [95, 170],
+      scale: 1.45,
+      tint: 0xffd35a,
+      physicalResist: 0.14,
+      magicResist: 0.1,
+      rank: "mini_boss",
+      zone: "King Slime Nest",
+      slotId: "king_slime_nest",
+      dropTier: 7,
+      isMiniBoss: true,
+    },
+  };
+})();

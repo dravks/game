@@ -595,6 +595,16 @@ class InventoryPanel {
     elements.push(typeText);
 
     let statsY = tooltipY - boxH / 2 + 66;
+    if (item.slot) {
+      const durability = this.GameState.getItemDurabilityText?.(item) || `${item.durability ?? "-"} / ${item.maxDurability ?? "-"}`;
+      const durabilityText = this.scene.add.text(tooltipX - boxW / 2 + 12, statsY, `Durability: ${durability}`, {
+        fontSize: "11px",
+        color: (item.durability || 0) <= 0 ? "#d96b6b" : "#d7c58f",
+        fontFamily: "Trebuchet MS, Arial, sans-serif",
+      }).setScrollFactor(0).setDepth(100001);
+      elements.push(durabilityText);
+      statsY += 16;
+    }
     const stats = this.collectItemStats(item);
     if (stats.length === 0) {
       const emptyText = this.scene.add.text(tooltipX - boxW / 2 + 12, statsY, "No bonus stats", {

@@ -524,6 +524,16 @@ class CharacterPanel {
     elements.push(type);
 
     let statsY = tooltipY - boxH / 2 + 66;
+    if (item.slot) {
+      const durability = this.GameState.getItemDurabilityText?.(item) || `${item.durability ?? "-"} / ${item.maxDurability ?? "-"}`;
+      const durabilityText = this.scene.add.text(tooltipX - boxW / 2 + 12, statsY, `Durability: ${durability}`, {
+        fontSize: "11px",
+        color: (item.durability || 0) <= 0 ? "#d96b6b" : "#d7c58f",
+        fontFamily: "Trebuchet MS, Arial, sans-serif",
+      }).setScrollFactor(0).setDepth(100001);
+      elements.push(durabilityText);
+      statsY += 16;
+    }
     this.collectItemStats(item).slice(0, 5).forEach((entry) => {
       const stat = this.scene.add.text(tooltipX - boxW / 2 + 12, statsY, entry.text, {
         fontSize: "11px",
